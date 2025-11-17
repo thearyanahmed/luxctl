@@ -1,4 +1,6 @@
 use std::path::PathBuf;
+use async_trait::async_trait;
+mod registry;
 
 use crate::validators::{Validator, ValidatorStep};
 
@@ -7,6 +9,7 @@ pub mod http_server;
 pub use http_server::HttpServerTask;
 
 /// Task trait - each task implements this interface
+#[async_trait]
 pub trait Task: Send + Sync {
     fn new() -> Self
     where
