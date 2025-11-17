@@ -2,6 +2,10 @@ use std::path::PathBuf;
 
 use crate::validators::{Validator, ValidatorStep};
 
+pub mod http_server;
+
+pub use http_server::HttpServerTask;
+
 /// Task trait - each task implements this interface
 pub trait Task: Send + Sync {
     fn new() -> Self
