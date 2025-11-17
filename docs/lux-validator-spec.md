@@ -166,41 +166,294 @@ pub struct TestCase {
 }
 ```
 
-### Task Registry (In-Memory)
+### Task Trait (Clean Interface)
+
+Each task is a separate struct implementing the `Task` trait:
 
 ```rust
-use std::collections::HashMap;
+pub trait Task {
+    fn new() -> Self where Self: Sized;
+    fn id(&self) -> &'static str;
+    fn name(&self) -> &'static str;
+    fn description(&self) -> &'static str;
+    fn hints(&self) -> &'static [&'static str];
+    fn validators(&self) -> &[ValidatorStep];
+
+    // Default implementations
+    async fn validate(&self, context: &ValidationContext) -> Result<TestResults, String> {
+        let mut tests = Vec::new();
+        for step in self.validators() {
+            tests.push(step.validator.validate(context).await?);
+        }
+        Ok(TestResults { tests })
+    }
+
+    async fn validate_step(&self, step_id: &str, context: &ValidationContext) -> Result<TestCase, String> {
+        let step = self.validators()
+            .iter()
+            .find(|s| s.id == step_id)
+            .ok_or_else(|| format!("Step '{}' not found", step_id))?;
+
+        step.validator.validate(context).await
+    }
+}
+```
+
+### ValidatorStep Structure
+
+Each validator within a task has its own ID, name, and hints:
+
+```rust
+pub struct ValidatorStep {
+    pub id: &'static str,
+    pub name: &'static str,
+    pub hints: &'static [&'static str],
+    pub validator: Validator,
+}
+```
+
+### Task Registry (Static Array)
+
+Tasks are stored in a static array (no HashMap, no dynamic growth):
+
+```rust
 use once_cell::sync::Lazy;
 
-type TaskRegistry = HashMap<&'static str, Task>;
+static TASKS: Lazy<Vec<Box<dyn Task>>> = Lazy::new(|| {
+    vec![
+        Box::new(HttpServerTask::new()),
+        Box::new(TcpEchoTask::new()),
+    ]
+});
 
-static TASK_REGISTRY: Lazy<TaskRegistry> = Lazy::new(|| {
-    let mut registry = HashMap::new();
+pub fn get_task(id: &str) -> Option<&'static dyn Task> {
+    TASKS.iter()
+        .find(|t| t.id() == id)
+        .map(|b| &**b as &dyn Task)
+}
+```
 
-    // HTTP Server task
-    registry.insert(
-        "550e8400-e29b-41d4-a716-446655440000",
-        Task {
-            id: "550e8400-e29b-41d4-a716-446655440000",
-            name: "HTTP Server",
-            description: "Build an HTTP server that handles JSON API requests on port 8000",
-            hints: &[
-                "Start by binding a TCP listener to port 8000",
-                "Implement the /api/v1/hello endpoint first",
-                "Return proper JSON Content-Type headers",
-                "Handle 404 errors for unknown endpoints",
-            ],
+### Example Task Implementation
+
+```rust
+// src/tasks/http_server.rs
+pub struct HttpServerTask {
+    validators: Vec<ValidatorStep>,
+}
+
+impl Task for HttpServerTask {
+    fn new() -> Self {
+        Self {
             validators: vec![
-                Validator::Port(PortValidator::new(8000)),
-                Validator::Endpoint(EndpointValidator::new("/api/v1/hello")),
-                Validator::JsonResponse(JsonResponseValidator::new()),
-                Validator::StatusCode(StatusCodeValidator::new(404)),
+                ValidatorStep {
+                    id: "port-check",
+                    name: "Server binds to port 8000",
+                    hints: &["Use TcpListener::bind", "Bind to 127.0.0.1:8000"],
+                    validator: Validator::Port(PortValidator::new(8000)),
+                },
+                ValidatorStep {
+                    id: "hello-endpoint",
+                    name: "Implements /api/v1/hello endpoint",
+                    hints: &["Parse the request path", "Return JSON response"],
+                    validator: Validator::Endpoint(EndpointValidator::new("/api/v1/hello")),
+                },
             ],
         }
-    );
+    }
 
-    registry
-});
+    fn id(&self) -> &'static str {
+        "550e8400-e29b-41d4-a716-446655440000"
+    }
+
+    fn name(&self) -> &'static str {
+        "HTTP Server"
+    }
+
+    fn description(&self) -> &'static str {
+        "Build an HTTP server that handles JSON API requests on port 8000"
+    }
+
+    fn hints(&self) -> &'static [&'static str] {
+        &[
+            "Start by binding a TCP listener to port 8000",
+            "Implement the /api/v1/hello endpoint first",
+            "Return proper JSON Content-Type headers",
+        ]
+    }
+
+    fn validators(&self) -> &[ValidatorStep] {
+        &self.validators
+    }
+}
+```
+
+### Validator Implementation Examples
+
+**PortValidator** - Checks if server is listening on a port:
+
+```rust
+pub struct PortValidator {
+    port: u16,
+}
+
+impl PortValidator {
+    pub fn new(port: u16) -> Self {
+        Self { port }
+    }
+
+    pub async fn validate(&self, context: &ValidationContext) -> Result<TestCase, String> {
+        use tokio::net::TcpStream;
+        use tokio::time::{timeout, Duration};
+
+        // Try to connect to the port
+        let addr = format!("127.0.0.1:{}", self.port);
+        let result = timeout(
+            Duration::from_secs(2),
+            TcpStream::connect(&addr)
+        ).await;
+
+        match result {
+            Ok(Ok(_)) => Ok(TestCase {
+                name: format!("Server listening on port {}", self.port),
+                passed: true,
+                error: None,
+            }),
+            Ok(Err(e)) => Ok(TestCase {
+                name: format!("Server listening on port {}", self.port),
+                passed: false,
+                error: Some(format!("Connection failed: {}", e)),
+            }),
+            Err(_) => Ok(TestCase {
+                name: format!("Server listening on port {}", self.port),
+                passed: false,
+                error: Some("Connection timeout".to_string()),
+            }),
+        }
+    }
+}
+```
+
+**EndpointValidator** - Tests if an HTTP endpoint exists:
+
+```rust
+pub struct EndpointValidator {
+    endpoint: String,
+    port: u16,
+}
+
+impl EndpointValidator {
+    pub fn new(endpoint: &str) -> Self {
+        Self {
+            endpoint: endpoint.to_string(),
+            port: 8000, // Default port
+        }
+    }
+
+    pub async fn validate(&self, context: &ValidationContext) -> Result<TestCase, String> {
+        use tokio::net::TcpStream;
+        use tokio::io::{AsyncWriteExt, AsyncReadExt};
+
+        let addr = format!("127.0.0.1:{}", self.port);
+        let mut stream = TcpStream::connect(&addr)
+            .await
+            .map_err(|e| format!("Failed to connect: {}", e))?;
+
+        // Send HTTP GET request
+        let request = format!(
+            "GET {} HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n",
+            self.endpoint
+        );
+
+        stream.write_all(request.as_bytes())
+            .await
+            .map_err(|e| format!("Failed to send request: {}", e))?;
+
+        // Read response
+        let mut response = Vec::new();
+        stream.read_to_end(&mut response)
+            .await
+            .map_err(|e| format!("Failed to read response: {}", e))?;
+
+        let response_str = String::from_utf8_lossy(&response);
+
+        // Check for 200 OK status
+        if response_str.contains("HTTP/1.1 200") || response_str.contains("HTTP/1.0 200") {
+            Ok(TestCase {
+                name: format!("Endpoint {} returns 200 OK", self.endpoint),
+                passed: true,
+                error: None,
+            })
+        } else {
+            Ok(TestCase {
+                name: format!("Endpoint {} returns 200 OK", self.endpoint),
+                passed: false,
+                error: Some(format!("Expected 200 OK, got: {}",
+                    response_str.lines().next().unwrap_or("no response"))),
+            })
+        }
+    }
+}
+```
+
+**JsonResponseValidator** - Validates JSON Content-Type header:
+
+```rust
+pub struct JsonResponseValidator {
+    endpoint: String,
+    port: u16,
+}
+
+impl JsonResponseValidator {
+    pub fn new() -> Self {
+        Self {
+            endpoint: "/api/v1/hello".to_string(),
+            port: 8000,
+        }
+    }
+
+    pub async fn validate(&self, context: &ValidationContext) -> Result<TestCase, String> {
+        use tokio::net::TcpStream;
+        use tokio::io::{AsyncWriteExt, AsyncReadExt};
+
+        let addr = format!("127.0.0.1:{}", self.port);
+        let mut stream = TcpStream::connect(&addr).await
+            .map_err(|e| format!("Failed to connect: {}", e))?;
+
+        let request = format!(
+            "GET {} HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n",
+            self.endpoint
+        );
+
+        stream.write_all(request.as_bytes()).await
+            .map_err(|e| format!("Failed to send request: {}", e))?;
+
+        let mut response = Vec::new();
+        stream.read_to_end(&mut response).await
+            .map_err(|e| format!("Failed to read response: {}", e))?;
+
+        let response_str = String::from_utf8_lossy(&response);
+
+        // Check for JSON content type
+        let has_json_header = response_str
+            .lines()
+            .any(|line| line.to_lowercase().contains("content-type") &&
+                        line.to_lowercase().contains("application/json"));
+
+        if has_json_header {
+            Ok(TestCase {
+                name: "Response has JSON Content-Type header".to_string(),
+                passed: true,
+                error: None,
+            })
+        } else {
+            Ok(TestCase {
+                name: "Response has JSON Content-Type header".to_string(),
+                passed: false,
+                error: Some("Missing or incorrect Content-Type header".to_string()),
+            })
+        }
+    }
+}
 ```
 
 ## Example: TCP Echo Validator
