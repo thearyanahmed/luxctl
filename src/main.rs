@@ -2,11 +2,12 @@ use clap::Parser;
 
 mod tasks;
 mod validators;
-mod version;
+
+pub const VERSION: &str = "0.0.1";
 
 #[derive(Parser)]
 #[command(name = "lux")]
-#[command(version = version::version())]
+#[command(version = VERSION)]
 struct CLI {
 
 }
