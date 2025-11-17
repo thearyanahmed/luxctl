@@ -30,10 +30,15 @@ fn main() {
         Commands::Run { task_id } => {
             match tasks::get_task(&task_id) {
                 None => {
+                    // TODO: need to handle it with LuxError
                     println!("not found");
                 },
-                _ => {
-                    println!("probbly found something")
+                Some(task)=> {
+                    // TODO: we also need to make sure if this requires API authentications
+                    // restructure tasks to have needs_authentication layer.
+                    //
+                    // also need to think about bringing tasks from remote origin.
+                    println!("task {}", task.name())
                 }
             }
         }
