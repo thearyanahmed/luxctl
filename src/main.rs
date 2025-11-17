@@ -1,3 +1,6 @@
+mod tasks;
+mod validators;
+
 fn main() {
-    println!("Hello, world!");
+    println!("lux validator v0.1.0");
 }
