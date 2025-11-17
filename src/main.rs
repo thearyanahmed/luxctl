@@ -1,7 +1,19 @@
+use clap::Parser;
+
 mod tasks;
 mod validators;
 mod version;
 
-fn main() {
-    println!("the version is {}", version::version());
+#[derive(Parser)]
+#[command(name = "lux")]
+#[command(version = version::version())]
+struct CLI {
+
 }
+
+fn main() {
+    let _cli = CLI::parse();
+
+}
+
+
