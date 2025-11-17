@@ -1,0 +1,158 @@
+# lighthouse CLI - Technical Specification
+
+## Overview
+A Rust-based CLI tool that validates local systems programming exercises without requiring cloud infrastructure.
+
+## Why Rust
+- Cross-platform single binary distribution
+- Strong async support (tokio) for network testing
+- Excellent process management
+- Fast validation = better UX
+- Dogfooding (teaching Rust by using Rust)
+
+## Core Commands
+
+```bash
+lighthouse init <exercise> [--lang rust|go]    # Download starter code
+lighthouse test [--verbose]                     # Run validation tests
+lighthouse hints [--progressive]                # Show progressive hints
+lighthouse doctor                               # Check local environment
+lighthouse submit                               # (future) Record completion
+```
+
+## Project Structure
+
+```
+lighthouse/
+├── src/
+│   ├── main.rs              # CLI entry point (clap)
+│   ├── commands/
+│   │   ├── init.rs          # Download starter code
+│   │   ├── test.rs          # Run validators
+│   │   ├── hints.rs         # Show hints
+│   │   └── doctor.rs        # Check setup
+│   ├── exercises/
+│   │   ├── mod.rs
+│   │   ├── registry.rs      # Exercise definitions
+│   │   └── validators/
+│   │       ├── tcp_echo.rs
+│   │       ├── http_parser.rs
+│   │       └── ...
+│   ├── runner.rs            # Spawn/manage user binaries
+│   └── output.rs            # Pretty test results
+└── exercises/               # Starter code templates
+    ├── tcp-echo-server/
+    │   ├── rust/
+    │   │   ├── Cargo.toml
+    │   │   └── src/main.rs  # TODOs
+    │   └── go/
+    │       ├── go.mod
+    │       └── main.go
+    └── ...
+```
+
+## Key Dependencies
+- `clap` - CLI argument parsing
+- `tokio` - Async runtime for validators
+- `colored` - Terminal output coloring
+- `indicatif` - Progress bars
+- `serde` / `serde_json` - Configuration
+- `reqwest` - Fetch templates (optional)
+
+## Validator Architecture
+
+Each exercise implements the `Validator` trait:
+
+```rust
+#[async_trait]
+pub trait Validator {
+    async fn run(&self) -> Result<TestResults>;
+}
+
+pub struct TestResults {
+    pub tests: Vec<TestCase>,
+}
+
+pub struct TestCase {
+    pub name: String,
+    pub passed: bool,
+    pub error: String,
+}
+```
+
+## Example: TCP Echo Validator
+
+**What it tests:**
+1. Server starts and binds to port
+2. Accepts connections
+3. Echoes input correctly
+4. Handles concurrent connections
+5. Graceful shutdown
+
+**How it works:**
+- Spawn user's binary as subprocess
+- Connect via tokio TcpStream
+- Send test payloads
+- Validate responses
+- Test concurrent connections
+- Kill process and verify cleanup
+
+## Exercise Definition
+
+```rust
+pub struct Exercise {
+    pub id: String,
+    pub name: String,
+    pub description: String,
+    pub validator: Box<dyn Validator>,
+    pub templates: HashMap<String, String>, // lang -> source
+    pub hints: Vec<String>,
+}
+```
+
+## Output Format
+
+```
+Running tests...
+✓ Server starts on port 8080
+✓ Accepts connections
+✓ Echoes input correctly
+✗ Handles concurrent connections (expected: 10, got: 1)
+
+3/4 tests passed
+
+Hints: lighthouse hints --progressive
+```
+
+## Distribution
+- Build for Linux (x86_64), macOS (x86_64, ARM64), Windows
+- GitHub Releases with pre-built binaries
+- Use `cargo-dist` for automated releases
+- Single binary, no dependencies
+
+## Development Timeline
+
+**Week 1-2:** Core CLI + test runner framework
+**Week 3:** First exercise validator (TCP echo server)
+**Week 4:** Add 2-3 more exercises, beta release
+
+## First Exercise: TCP Echo Server
+
+**Why this one first:**
+- Simple concept, actually useful
+- Tests networking + concurrency fundamentals
+- Easy to validate programmatically
+- Good learning progression
+
+**Starter code includes:**
+- TODO comments marking implementation points
+- Basic structure (main, connection handling)
+- Error handling skeleton
+- Tests they can run locally
+
+## Future Considerations
+- Cache validated exercises locally
+- Submit results to projectlighthouse.io (track progress)
+- Leaderboards / completion stats
+- Exercise difficulty ratings
+- Community-contributed exercises
