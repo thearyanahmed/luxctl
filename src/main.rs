@@ -1,6 +1,6 @@
 use clap::{arg, Parser, Subcommand};
 
-use lux::VERSION;
+use lux::{VERSION, api};
 
 #[derive(Parser)]
 #[command(name = "lux")]
@@ -30,6 +30,10 @@ enum Commands {
 
 fn main() {
     env_logger::init();
+
+    let api = api::LighthouseAPI::default();
+
+    api.ping();
 
     let cli = CLI::parse();
 
