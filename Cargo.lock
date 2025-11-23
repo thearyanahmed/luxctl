@@ -225,6 +225,7 @@ dependencies = [
  "env_logger",
  "log",
  "once_cell",
+ "regex",
  "tokio",
 ]
 
