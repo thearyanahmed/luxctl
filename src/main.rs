@@ -1,11 +1,6 @@
-use clap::Subcommand;
-use clap::arg;
-use clap::Parser;
+use clap::{arg, Parser, Subcommand};
 
-mod tasks;
-mod validators;
-
-pub const VERSION: &str = "0.0.1";
+use lux::VERSION;
 
 #[derive(Parser)]
 #[command(name = "lux")]
