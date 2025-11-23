@@ -38,10 +38,12 @@ struct LighthouseAPIBaseURL(String);
 
 impl LighthouseAPIBaseURL {
     pub fn from(base_url: &str, environment: Env) -> Result<Self, String> {
-        // Regex pattern:
-        // 1. localhost (http or https, any port)
-        // 2. OR *.projectlighthouse.io with https only
-        let pattern = r"^(https?://localhost(:\d+)?(/.*)?|https://([a-zA-Z0-9-]+\.)*projectlighthouse\.io(/.*)?)\s*$";
+        let pattern = match environment {
+            // DEV: allow localhost (http or https, any port)
+            Env::DEV => r"^https?://localhost(:\d+)?(/.*)?$",
+            // RELEASE: only allow https://*.projectlighthouse.io
+            Env::RELEASE => r"^https://([a-zA-Z0-9-]+\.)*projectlighthouse\.io(/.*)?$",
+        };
 
         let re = regex::Regex::new(pattern)
             .map_err(|e| format!("invalid regex pattern: {}", e))?;
@@ -49,13 +51,17 @@ impl LighthouseAPIBaseURL {
         if re.is_match(base_url) {
             Ok(LighthouseAPIBaseURL(base_url.to_string()))
         } else {
-            Err("invalid URL: must be localhost or https://*.projectlighthouse.io".to_string())
+            let err_msg = match environment {
+                Env::DEV => "invalid URL: must be localhost in DEV environment",
+                Env::RELEASE => "invalid URL: must be https://*.projectlighthouse.io in RELEASE environment",
+            };
+            Err(err_msg.to_string())
         }
     }
 
     pub fn default_for_env(environment: Env) -> Self {
         let url = match environment {
-            Env::DEV => "http://localhost:8080",
+            Env::DEV => "http://localhost:8000",
             Env::RELEASE => "https://api.projectlighthouse.io",
         };
         LighthouseAPIBaseURL(url.to_string())
@@ -108,22 +114,36 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_lighthouse_api_base_url_validation() {
-        // Valid localhost URLs
+    fn test_lighthouse_api_base_url_dev_env() {
+        // Valid localhost URLs in DEV
         assert!(LighthouseAPIBaseURL::from("http://localhost", Env::DEV).is_ok());
         assert!(LighthouseAPIBaseURL::from("https://localhost", Env::DEV).is_ok());
         assert!(LighthouseAPIBaseURL::from("http://localhost:8080", Env::DEV).is_ok());
         assert!(LighthouseAPIBaseURL::from("https://localhost:3000/api", Env::DEV).is_ok());
 
-        // Valid projectlighthouse.io URLs (https only)
+        // projectlighthouse.io NOT allowed in DEV
+        assert!(LighthouseAPIBaseURL::from("https://projectlighthouse.io", Env::DEV).is_err());
+        assert!(LighthouseAPIBaseURL::from("https://api.projectlighthouse.io", Env::DEV).is_err());
+
+        // Invalid URLs in DEV
+        assert!(LighthouseAPIBaseURL::from("ftp://localhost", Env::DEV).is_err()); // wrong scheme
+        assert!(LighthouseAPIBaseURL::from("https://example.com", Env::DEV).is_err()); // wrong domain
+    }
+
+    #[test]
+    fn test_lighthouse_api_base_url_release_env() {
+        // Valid projectlighthouse.io URLs in RELEASE (https only)
         assert!(LighthouseAPIBaseURL::from("https://projectlighthouse.io", Env::RELEASE).is_ok());
         assert!(LighthouseAPIBaseURL::from("https://api.projectlighthouse.io", Env::RELEASE).is_ok());
         assert!(LighthouseAPIBaseURL::from("https://api.projectlighthouse.io/v1", Env::RELEASE).is_ok());
 
-        // Invalid URLs
+        // localhost NOT allowed in RELEASE
+        assert!(LighthouseAPIBaseURL::from("http://localhost", Env::RELEASE).is_err());
+        assert!(LighthouseAPIBaseURL::from("https://localhost:8080", Env::RELEASE).is_err());
+
+        // Invalid URLs in RELEASE
         assert!(LighthouseAPIBaseURL::from("http://projectlighthouse.io", Env::RELEASE).is_err()); // http not allowed
         assert!(LighthouseAPIBaseURL::from("https://example.com", Env::RELEASE).is_err()); // wrong domain
-        assert!(LighthouseAPIBaseURL::from("ftp://localhost", Env::DEV).is_err()); // wrong scheme
     }
 }
 
