@@ -134,6 +134,7 @@ mod tests {
     fn test_lighthouse_api_base_url_release_env() {
         // Valid projectlighthouse.io URLs in RELEASE (https only)
         assert!(LighthouseAPIBaseURL::from("https://projectlighthouse.io", Env::RELEASE).is_ok());
+        assert!(LighthouseAPIBaseURL::from("https://projectlighthouse.io/api", Env::RELEASE).is_ok());
         assert!(LighthouseAPIBaseURL::from("https://api.projectlighthouse.io", Env::RELEASE).is_ok());
         assert!(LighthouseAPIBaseURL::from("https://api.projectlighthouse.io/v1", Env::RELEASE).is_ok());
 
