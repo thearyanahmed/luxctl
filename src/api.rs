@@ -1,23 +1,37 @@
+use core::fmt;
 use std::env;
+
+use crate::VERSION;
 
 pub struct LighthouseAPI {
     pub base_url: String,
     pub api_version: String,
+    env: Env,
 }
 
 impl LighthouseAPI {
-    pub fn new(base_url: &str, api_version: &str) -> LighthouseAPI {
+    pub fn new(base_url: &str, api_version: &str, env: Env) -> LighthouseAPI {
         LighthouseAPI {
             base_url: base_url.to_string(),
             api_version: api_version.to_string(),
+            env,
         }
     }
 }
 
 #[derive(Clone, Copy)]
-enum Env {
+pub enum Env {
     DEV,
     RELEASE,
+}
+
+impl fmt::Display for Env {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Env::DEV => write!(f, "dev"),
+            Env::RELEASE => write!(f, "release"),
+        }
+    }
 }
 
 struct LighthouseAPIBaseURL(String);
@@ -55,7 +69,7 @@ impl Default for LighthouseAPI {
         // 2. default to Env::DEV in case of error or if not set
         let lux_env = match env::var("LUX_ENV") {
             Ok(val) => match val.to_uppercase().as_str() {
-                "RELEASE" | "PROD" | "PRODUCTION" => Env::RELEASE,
+                "RELEASE" => Env::RELEASE,
                 _ => Env::DEV,
             },
             Err(_) => Env::DEV,
@@ -78,13 +92,14 @@ impl Default for LighthouseAPI {
 
         log::info!("initiating lighthouse api with {}", base_url.0);
 
-        LighthouseAPI::new(&base_url.0, "v1")
+        LighthouseAPI::new(&base_url.0, "v1", lux_env)
     }
 }
 
-impl LighthouseAPI {
-    pub fn ping(&self) {
-        log::info!("pong")
+
+impl fmt::Display for LighthouseAPI {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f,"cli_version: {} base_url: {} api_version: {} env: {}",VERSION, self.base_url, self.api_version, self.env)
     }
 }
 

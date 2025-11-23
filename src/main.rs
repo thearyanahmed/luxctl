@@ -33,7 +33,7 @@ fn main() {
 
     let api = api::LighthouseAPI::default();
 
-    api.ping();
+    log::info!("{}",api);
 
     let cli = CLI::parse();
 
