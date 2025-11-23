@@ -41,7 +41,7 @@ impl LighthouseAPIBaseURL {
         let pattern = match environment {
             // DEV: allow localhost (http or https, any port)
             Env::DEV => r"^https?://localhost(:\d+)?(/.*)?$",
-            // RELEASE: only allow https://*.projectlighthouse.io
+            // RELEASE: only allow https://*projectlighthouse.io
             Env::RELEASE => r"^https://([a-zA-Z0-9-]+\.)*projectlighthouse\.io(/.*)?$",
         };
 
