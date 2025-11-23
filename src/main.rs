@@ -18,29 +18,29 @@ struct CLI {
 #[derive(Subcommand)]
 enum Commands {
     Run {
+        #[arg(short ='p', long)]
+        project: String,
+
         #[arg(short = 't', long)]
-        task_id: String,
+        task: String,
     }
 }
 
+
+// scratch pad:
+// lux run -p project_slug -t task_slug 
+// same as: lux run --project $project_slug --task $task_slug
+//
+// we should log as well, and maybe the user can have it as verbose log
+
 fn main() {
+    env_logger::init();
+
     let cli = CLI::parse();
 
     match cli.commands {
-        Commands::Run { task_id } => {
-            match tasks::get_task(&task_id) {
-                None => {
-                    // TODO: need to handle it with LuxError
-                    println!("not found");
-                },
-                Some(task)=> {
-                    // TODO: we also need to make sure if this requires API authentications
-                    // restructure tasks to have needs_authentication layer.
-                    //
-                    // also need to think about bringing tasks from remote origin.
-                    println!("task {}", task.name())
-                }
-            }
+        Commands::Run { project, task } => {
+            log::info!("Running task '{}' for project '{}'", task, project);
         }
     }
 }

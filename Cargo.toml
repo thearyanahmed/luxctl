@@ -8,6 +8,8 @@ tokio = { version = "1.42", features = ["full"] }
 once_cell = "1.20"
 clap = { version = "4.5.52", features = ["derive"] }
 async-trait = "0.1.89"
+log = "0.4.28"
+env_logger = "0.11"
 
 [lints.clippy]
 unwrap_used = "deny"
