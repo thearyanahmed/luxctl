@@ -23,7 +23,7 @@ impl ApiUser {
 }
 
 impl TokenAuthenticator {
-    pub fn new(token: &str, client: LighthouseAPIClient) -> Self {
+    pub fn new( client: LighthouseAPIClient, token: &str) -> Self {
         TokenAuthenticator {
             token: token.to_string(),
             client,

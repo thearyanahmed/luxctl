@@ -1,7 +1,7 @@
 use clap::{arg, Parser, Subcommand};
 use color_eyre::eyre::Result;
 
-use lux::{VERSION, api};
+use lux::{VERSION, api, auth::TokenAuthenticator};
 
 #[derive(Parser)]
 #[command(name = "lux")]
@@ -34,13 +34,12 @@ enum Commands {
 //
 // we should log as well, and maybe the user can have it as verbose log
 
-fn main() -> Result<()>{
+#[tokio::main]
+async fn main() -> Result<()>{
     color_eyre::install()?;
     env_logger::init();
 
-    let api = api::LighthouseAPIClient::default();
-
-    log::info!("{}",api);
+    let client = api::LighthouseAPIClient::default();
 
     let cli = CLI::parse();
 
@@ -49,7 +48,16 @@ fn main() -> Result<()>{
             log::info!("Running task '{}' for project '{}'", task, project);
         },
         Commands::Auth { token } => {
-            log::info!("Authenticating with token '{}'", token);
+            let authenticator = TokenAuthenticator::new( client, &token);
+
+            match authenticator.authenticate().await {
+                Ok(user) => {
+                    log::info!("user loggged in {}", user.name())
+                },
+                Err(err) => {
+                    log::error!("{}", err)
+                }
+            }
         },
     }
 
