@@ -1,9 +1,9 @@
 use color_eyre::eyre::{ Result, eyre};
-use crate::api::LighthouseAPI;
+use crate::api::LighthouseAPIClient;
 
 pub struct TokenAuthenticator {
     pub token: String,
-    client: LighthouseAPI,
+    client: LighthouseAPIClient,
 }
 
 #[derive(Debug)]
@@ -23,7 +23,7 @@ impl ApiUser {
 }
 
 impl TokenAuthenticator {
-    pub fn new(token: &str, client: LighthouseAPI) -> Self {
+    pub fn new(token: &str, client: LighthouseAPIClient) -> Self {
         TokenAuthenticator {
             token: token.to_string(),
             client,
@@ -55,11 +55,11 @@ impl TokenAuthenticator {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::api::LighthouseAPI;
+    use crate::api::LighthouseAPIClient;
 
     #[tokio::test]
     async fn test_authentication_with_empty_token_should_fail() {
-        let api_client = LighthouseAPI::default();
+        let api_client = LighthouseAPIClient::default();
         let token_authenticator = TokenAuthenticator::new("", api_client);
 
         let result = token_authenticator.authenticate().await;

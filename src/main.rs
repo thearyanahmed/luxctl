@@ -38,7 +38,7 @@ fn main() -> Result<()>{
     color_eyre::install()?;
     env_logger::init();
 
-    let api = api::LighthouseAPI::default();
+    let api = api::LighthouseAPIClient::default();
 
     log::info!("{}",api);
 
