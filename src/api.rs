@@ -1,5 +1,8 @@
+use reqwest::{Client, Response, header::HeaderMap};
+use color_eyre::eyre::{ Ok, Result, eyre};
+use serde::{Deserialize, de::DeserializeOwned};
 use core::fmt;
-use std::env;
+use std::{collections::HashMap, env, fmt::Result};
 
 use crate::VERSION;
 
@@ -7,6 +10,7 @@ pub struct LighthouseAPIClient {
     pub base_url: String,
     pub api_version: String,
     env: Env,
+    client: Client,
 }
 
 impl LighthouseAPIClient {
@@ -15,8 +19,82 @@ impl LighthouseAPIClient {
             base_url: base_url.0,
             api_version: api_version.to_string(),
             env,
+            client: Client::new(),
         }
     }
+
+    
+    // when we deserialize JSON, we're creating owned data. But
+    // there are two Deserialize traits:
+    //
+    // 1. Deserialize<'de> - Can borrow data from the input (has a lifetime)
+    // 2. DeserializeOwned - Must own all its data (no lifetimes)
+    //
+    // when we write a generic function that returns T, you need T to be able
+    // to own its data.
+    //
+    // #[derive(Deserialize)]  // This implements BOTH Deserialize<'de> AND
+    // DeserializeOwned
+    // struct User {
+    //     username: String,  // String is owned data
+    //     email: String,
+    // }
+    //
+    // let user: User = response.json().await?;
+    // The User is created with owned Strings, not borrowed data
+    //
+    pub async fn get<T: DeserializeOwned>(
+        &self,
+        endpoint: &str,
+        query_params: Option<HashMap<String,String>>,
+        headers: Option<HeaderMap>,
+    ) -> Result<T>  { // just keep bool for now 
+
+        let url = format!("{}/api/{}/{}", self.base_url,self.api_version, endpoint);
+
+
+        let mut request = self.client.get(url);
+
+        if let Some(query_params) = query_params {
+            request = request.query(&query_params);
+        }
+
+        if let Some(headers) = headers {
+            request = request.headers(headers);
+        }
+
+        let response = request.send().await?;
+
+        if !response.status().is_success() {
+            let error_text = response.text().await?;
+            return Err(eyre!("{}",error_text));
+        }
+
+        let data = response.json::<T>().await?;
+        Ok(data)
+
+
+    }
+
+}
+
+#[derive(Deserialize)]
+pub struct ApiUser {
+    pub id: i32,
+    pub name: String, 
+    pub email: String,
+}
+
+impl LighthouseAPIClient {
+    pub async fn me(&self, token: &str) -> Result<ApiUser>{
+        let mut headers = HeaderMap::new();
+        headers.insert("Authorization", format!("Bearer {}", token).parse()?);
+
+        Ok(
+            self.get::<ApiUser>("/user", None, Some(headers)).await?
+        )
+    }
+
 }
 
 #[derive(Clone, Copy)]
