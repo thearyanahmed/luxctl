@@ -2,7 +2,7 @@ use reqwest::{Client, header::HeaderMap};
 use color_eyre::eyre::{Result, eyre};
 use serde::{Deserialize, de::DeserializeOwned};
 use core::fmt;
-use std::{collections::HashMap, env, fmt::format};
+use std::{collections::HashMap, env};
 
 use crate::VERSION;
 
@@ -185,7 +185,7 @@ impl Default for LighthouseAPIClient {
             Err(_) => LighthouseAPIClientBaseURL::default_for_env(lux_env),
         };
 
-        log::info!("initiating lighthouse api with {}", base_url.0);
+        log::debug!("initiating lighthouse api with {}", base_url.0);
 
         LighthouseAPIClient::new(base_url, "v1", lux_env)
     }

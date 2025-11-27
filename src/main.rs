@@ -52,7 +52,7 @@ async fn main() -> Result<()>{
 
             match authenticator.authenticate().await {
                 Ok(user) => {
-                    log::info!("user loggged in {}", user.name())
+                    log::info!("welcome {},now I just need to store the token into ~/.lux/cfg", user.name())
                 },
                 Err(err) => {
                     log::error!("{}", err)
