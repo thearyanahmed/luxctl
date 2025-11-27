@@ -60,7 +60,7 @@ mod tests {
     #[tokio::test]
     async fn test_authentication_with_empty_token_should_fail() {
         let api_client = LighthouseAPIClient::default();
-        let token_authenticator = TokenAuthenticator::new("", api_client);
+        let token_authenticator = TokenAuthenticator::new(api_client, "");
 
         let result = token_authenticator.authenticate().await;
         assert!(result.is_err());
