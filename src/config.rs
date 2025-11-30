@@ -1,5 +1,5 @@
-use std::{fs, path::{PathBuf}};
-use color_eyre::eyre;
+use std::{collections::HashMap, fs, path::PathBuf};
+use color_eyre::eyre::{self, Ok};
 use secrecy::{ExposeSecret, SecretString};
 
 // we'll always use this path.
@@ -39,10 +39,22 @@ impl Config {
     pub fn load() -> Result<Config, eyre::Error> {
         let path = Self::config_path()?;
         let content = fs::read_to_string(&path)
-            .map_err(|e| eyre::eyre!("failed to read config file:{} ,", e))?;
+            .map_err(|e| eyre::eyre!("failed to read config file: {}", e))?;
 
-        let token = content.trim().to_string();
-        Ok(Config::new(&token))
+        let map: HashMap<&str, &str> = content
+            .lines()
+            .filter(|line| !line.trim().is_empty())
+            .filter_map(|line| {
+                let mut parts = line.splitn(2, "=");
+                Some((parts.next()?.trim(), parts.next()?.trim()))
+            })
+            .collect();
+
+        let token = map.get("token")
+            .copied()
+            .ok_or_else(|| eyre::eyre!("token not found in config"))?;
+
+        Ok(Config::new(token))
     }
 
     pub fn exists() -> Result<bool, eyre::Error> {
@@ -58,8 +70,9 @@ impl Config {
             log::debug!("creating all dir {}", dir.display());
         }
 
-        fs::write(&path, self.expose_token())?;
-        log::debug!("token written successfully to path {}", path.display());
+        let content = format!("token={}\n", self.expose_token());
+        fs::write(&path, content)?;
+        log::debug!("config written successfully to path {}", path.display());
 
         Ok(true)
     }
