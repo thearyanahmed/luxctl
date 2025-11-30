@@ -1,7 +1,7 @@
 use clap::{arg, Parser, Subcommand};
 use color_eyre::eyre::Result;
 
-use lux::{VERSION, api, auth::TokenAuthenticator, config::Config, greet, oops, say};
+use lux::{VERSION, auth::TokenAuthenticator, config::Config, greet, oops};
 
 #[derive(Parser)]
 #[command(name = "lux")]
@@ -39,26 +39,11 @@ async fn main() -> Result<()> {
     color_eyre::install()?;
     env_logger::init();
 
-    let client = api::LighthouseAPIClient::default();
-
     let cli = Cli::parse();
 
-    let config = Config::load()?;
-
     match cli.commands {
-        Commands::Run { project, task } => {
-            log::info!("Running task '{}' for project '{}'", task, project);
-        },
-        Commands::Projects {} => {
-            // if config.has_auth_token() {
-                oops!("please authenticate first");
-                say!("run: {}", Commands::AUTH_USAGE);
-                // return Ok(());
-            // }
-            log::debug!("projects called")
-        },
         Commands::Auth { token } => {
-            let authenticator = TokenAuthenticator::new(client, &token);
+            let authenticator = TokenAuthenticator::new(&token);
 
             match authenticator.authenticate().await {
                 Ok(user) => {
@@ -70,6 +55,17 @@ async fn main() -> Result<()> {
                 }
             }
         }
+        Commands::Projects {} => {
+            let config = Config::load()?;
+            if !config.has_auth_token() {
+                oops!("not authenticated. Run: `{}`", Commands::AUTH_USAGE);
+                return Ok(());
+            }
+            log::debug!("projects called")
+        },
+        Commands::Run { project, task } => {
+            log::info!("Running task '{}' for project '{}'", task, project);
+        },
     }
 
     Ok(())

@@ -6,28 +6,27 @@ use color_eyre::eyre::{eyre, Ok, Result};
 
 pub struct TokenAuthenticator {
     pub token: String,
-    client: LighthouseAPIClient,
 }
 
 impl TokenAuthenticator {
-    pub fn new(client: LighthouseAPIClient, token: &str) -> Self {
+    pub fn new(token: &str) -> Self {
         TokenAuthenticator {
             token: token.to_string(),
-            client,
         }
     }
 
     pub async fn authenticate(&self) -> Result<ApiUser> {
-        // sanity checkn
         if self.token.is_empty() {
-            // return Error invalid error
             return Err(eyre!("token must not be empty."));
         }
 
-        let user = self.client.me(&self.token).await?;
-
+        // Create a temporary config to build the client with token
         let cfg = Config::new(&self.token);
+        let client = LighthouseAPIClient::from_config(&cfg);
 
+        let user = client.me().await?;
+
+        // Save config only after successful authentication
         cfg.save()?;
 
         Ok(user)
@@ -37,12 +36,10 @@ impl TokenAuthenticator {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::api::LighthouseAPIClient;
 
     #[tokio::test]
     async fn test_authentication_with_empty_token_should_fail() {
-        let api_client = LighthouseAPIClient::default();
-        let token_authenticator = TokenAuthenticator::new(api_client, "");
+        let token_authenticator = TokenAuthenticator::new("");
 
         let result = token_authenticator.authenticate().await;
         assert!(result.is_err());

@@ -1,16 +1,18 @@
 use color_eyre::eyre::{eyre, Result};
 use core::fmt;
 use reqwest::{header::HeaderMap, Client};
+use secrecy::{ExposeSecret, SecretString};
 use serde::{de::DeserializeOwned, Deserialize};
 use std::{collections::HashMap, env};
 
-use crate::VERSION;
+use crate::{config::Config, VERSION};
 
 pub struct LighthouseAPIClient {
     pub base_url: String,
     pub api_version: String,
     env: Env,
     client: Client,
+    token: Option<SecretString>,
 }
 
 impl LighthouseAPIClient {
@@ -18,13 +20,31 @@ impl LighthouseAPIClient {
         base_url: LighthouseAPIClientBaseURL,
         api_version: &str,
         env: Env,
+        token: Option<SecretString>,
     ) -> LighthouseAPIClient {
         LighthouseAPIClient {
             base_url: base_url.0,
             api_version: api_version.to_string(),
             env,
             client: Client::new(),
+            token,
         }
+    }
+
+    pub fn from_config(config: &Config) -> LighthouseAPIClient {
+        let mut client = LighthouseAPIClient::default();
+        client.token = Some(SecretString::from(config.expose_token().to_string()));
+        client
+    }
+
+    fn auth_headers(&self) -> Result<HeaderMap> {
+        let token = self.token.as_ref()
+            .ok_or_else(|| eyre!("no auth token configured"))?;
+
+        let mut headers = HeaderMap::new();
+        headers.insert("Authorization", format!("Bearer {}", token.expose_secret()).parse()?);
+        headers.insert("Accept", "application/json".parse()?);
+        Ok(headers)
     }
 
     // when we deserialize JSON, we're creating owned data. But
@@ -95,12 +115,13 @@ impl ApiUser {
 }
 
 impl LighthouseAPIClient {
-    pub async fn me(&self, token: &str) -> Result<ApiUser> {
-        let mut headers = HeaderMap::new();
-        headers.insert("Authorization", format!("Bearer {}", token).parse()?);
-        headers.insert("Accept", "application/json".parse()?);
-
+    pub async fn me(&self) -> Result<ApiUser> {
+        let headers = self.auth_headers()?;
         self.get::<ApiUser>("user", None, Some(headers)).await
+    }
+
+    pub async fn projects(&self) {
+
     }
 }
 
@@ -184,7 +205,7 @@ impl Default for LighthouseAPIClient {
 
         log::debug!("initiating lighthouse api with {}", base_url.0);
 
-        LighthouseAPIClient::new(base_url, "v1", lux_env)
+        LighthouseAPIClient::new(base_url, "v1", lux_env, None)
     }
 }
 
@@ -372,7 +393,7 @@ mod tests {
     #[test]
     fn test_lighthouse_api_new() {
         let base_url = LighthouseAPIClientBaseURL::from("http://localhost:8080", Env::DEV).unwrap();
-        let api = LighthouseAPIClient::new(base_url, "v2", Env::DEV);
+        let api = LighthouseAPIClient::new(base_url, "v2", Env::DEV, None);
 
         assert_eq!(api.base_url, "http://localhost:8080");
         assert_eq!(api.api_version, "v2");
@@ -383,7 +404,7 @@ mod tests {
         let base_url =
             LighthouseAPIClientBaseURL::from("https://api.projectlighthouse.io", Env::RELEASE)
                 .unwrap();
-        let api = LighthouseAPIClient::new(base_url, "v1", Env::RELEASE);
+        let api = LighthouseAPIClient::new(base_url, "v1", Env::RELEASE, None);
 
         assert_eq!(api.base_url, "https://api.projectlighthouse.io");
         assert_eq!(api.api_version, "v1");
@@ -528,7 +549,7 @@ mod tests {
     #[test]
     fn test_lighthouse_api_display_contains_all_fields() {
         let base_url = LighthouseAPIClientBaseURL::from("http://localhost:3000", Env::DEV).unwrap();
-        let api = LighthouseAPIClient::new(base_url, "v2", Env::DEV);
+        let api = LighthouseAPIClient::new(base_url, "v2", Env::DEV, None);
         let display = format!("{}", api);
 
         assert!(display.contains("http://localhost:3000"));
@@ -541,7 +562,7 @@ mod tests {
         let base_url =
             LighthouseAPIClientBaseURL::from("https://api.projectlighthouse.io", Env::RELEASE)
                 .unwrap();
-        let api = LighthouseAPIClient::new(base_url, "v1", Env::RELEASE);
+        let api = LighthouseAPIClient::new(base_url, "v1", Env::RELEASE, None);
         let display = format!("{}", api);
 
         assert!(display.contains("https://api.projectlighthouse.io"));
