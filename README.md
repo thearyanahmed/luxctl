@@ -4,11 +4,20 @@
 ## Features
 
 - [x] Authentication based on token
-- [x] Store the credentials ~encrypted~ in a file somewhere. Need to add encryption down the line. Could be a good first issue or optional with GPG key
+- [x] Store the credentials ~encrypted~ in a file somewhere. 
 - [x] Implement get me endpoint
 - [x] Run tests, individual
 - [ ] Support for listing projects
 - [ ] Setup CI pipeline for release
+
+### API
+- [ ] list projects and tasks
+- [ ] challenge a project, this should start executing tasks one by one
+- [ ] lux cli needs to call when a task has been initialised, and then record the results as well
+- [ ] after fetching a project, the cli should map the json to tasks
+
+### Circle back
+- Need to add encryption down the line. Could be a good first issue or optional with GPG key
 
 ## Local Development
 
