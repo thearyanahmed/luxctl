@@ -3,10 +3,10 @@
 
 ## Features
 
-- [ ] Authentication based on token
-- [ ] Store the credentials encrypted in a file somewhere
-- [ ] Implement get me endpoint
-- [ ] Run tests, individual
+- [x] Authentication based on token
+- [x] Store the credentials ~encrypted~ in a file somewhere. Need to add encryption down the line. Could be a good first issue or optional with GPG key
+- [x] Implement get me endpoint
+- [x] Run tests, individual
 - [ ] Support for listing projects
 - [ ] Setup CI pipeline for release
 
