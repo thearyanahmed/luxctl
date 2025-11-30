@@ -1,7 +1,7 @@
 use clap::{arg, Parser, Subcommand};
 use color_eyre::eyre::Result;
 
-use lux::{VERSION, api, auth::TokenAuthenticator, config::Config, greet, oops};
+use lux::{VERSION, api, auth::TokenAuthenticator, config::Config, greet, oops, say};
 
 #[derive(Parser)]
 #[command(name = "lux")]
@@ -28,8 +28,10 @@ enum Commands {
 
     Projects {
     }
+}
 
-
+impl Commands {
+    pub const AUTH_USAGE: &'static str = "lux auth --token <TOKEN>";
 }
 
 #[tokio::main]
@@ -48,9 +50,11 @@ async fn main() -> Result<()> {
             log::info!("Running task '{}' for project '{}'", task, project);
         },
         Commands::Projects {} => {
-            if config.has_auth_token() {
+            // if config.has_auth_token() {
                 oops!("please authenticate first");
-            }
+                say!("run: {}", Commands::AUTH_USAGE);
+                // return Ok(());
+            // }
             log::debug!("projects called")
         },
         Commands::Auth { token } => {

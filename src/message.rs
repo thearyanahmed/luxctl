@@ -2,6 +2,9 @@ use colored::Colorize;
 
 pub struct Message;
 
+// Fixed width for all prefixes (7 chars = "[ERROR]")
+const PREFIX_WIDTH: usize = 7;
+
 impl Message {
     pub fn greet(name: &str) {
         let msg = format!(
@@ -9,23 +12,23 @@ impl Message {
             name.bold(),
             "projectlighthouse".yellow()
         );
-        println!("{} {}", "[LUX]".blue(), msg);
+        println!("{:>WIDTH$} {}", "[LUX]".blue(), msg, WIDTH = PREFIX_WIDTH);
     }
 
     pub fn say(msg: &str) {
-        println!("{} {}", "[LUX]".blue(), msg);
+        println!("{:>WIDTH$} {}", "[LUX]".blue(), msg, WIDTH = PREFIX_WIDTH);
     }
 
     pub fn cheer(msg: &str) {
-        println!("{} {}", "[OK]".green(), msg);
+        println!("{:>WIDTH$} {}", "[OK]".green(), msg, WIDTH = PREFIX_WIDTH);
     }
 
     pub fn complain(msg: &str) {
-        eprintln!("{} {}", "[WARN]".yellow(), msg);
+        eprintln!("{:>WIDTH$} {}", "[WARN]".yellow(), msg, WIDTH = PREFIX_WIDTH);
     }
 
     pub fn oops(msg: &str) {
-        eprintln!("{} {}", "[ERROR]".red(), msg);
+        eprintln!("{:>WIDTH$} {}", "[ERROR]".red(), msg, WIDTH = PREFIX_WIDTH);
     }
 }
 
