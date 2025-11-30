@@ -3,8 +3,8 @@ use color_eyre::eyre;
 use secrecy::{ExposeSecret, SecretString};
 
 // we'll always use this path.
-static CFG_DIR : &str = "~/.lux";
-static CFG_FILE : &str = "~/cfg";
+static CFG_DIR : &str = ".lux";
+static CFG_FILE : &str = "cfg";
 
 
 pub struct Config {
@@ -55,9 +55,11 @@ impl Config {
 
         if let Some(dir) = path.parent() {
             fs::create_dir_all(dir)?;
+            log::debug!("creating all dir {}", dir.display());
         }
 
         fs::write(&path, self.expose_token())?;
+        log::debug!("token written successfully to path {}", path.display());
 
         Ok(true)
     }

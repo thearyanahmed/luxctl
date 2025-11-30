@@ -1,4 +1,4 @@
-use color_eyre::eyre::{ Result, eyre};
+use color_eyre::eyre::{ Ok, Result, eyre};
 use crate::{api::{ApiUser, LighthouseAPIClient}, config::Config};
 
 pub struct TokenAuthenticator {
@@ -21,14 +21,13 @@ impl TokenAuthenticator {
             return Err(eyre!("token must not be empty."))
         }
 
+        let user = self.client.me(&self.token).await?;
+
         let cfg = Config::new(&self.token);
-        
+
         cfg.save()?;
 
-        match self.client.me(&self.token).await {
-            Ok(user) => Ok(user), 
-            Err(err) => Err(eyre!("{}", err))
-        }
+        Ok(user)
     }
 }    
 
