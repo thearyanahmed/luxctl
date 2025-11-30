@@ -19,6 +19,9 @@ dirs = "5.0"
 secrecy = { version = "0.10.3", features = ["serde"] }
 colored = "3.0.0"
 
+[dev-dependencies]
+tempfile = "3"
+
 [lints.clippy]
 # Prevent common mistakes
 unwrap_used = "deny"
