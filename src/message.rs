@@ -43,9 +43,9 @@ impl Message {
 
     fn print_project(project: &Project) {
         println!("  {} {}", "[#]".dimmed(), project.name.bold());
-        println!("    {}", project.short_description.dimmed());
-        println!("    slug: {}  tasks: {}", project.slug.cyan(), project.tasks_count);
-        println!("    url: {}\n", project.url());
+        println!("    {}", project.short_description);
+        println!("    {} {}  {} {}", "slug:".dimmed(), project.slug.dimmed(), "tasks:".dimmed(), project.tasks_count.to_string().dimmed());
+        println!("    {} {}\n", "url:".dimmed(), project.url().dimmed());
     }
 }
 
