@@ -64,7 +64,7 @@ async fn main() -> Result<()> {
 
             let client = LighthouseAPIClient::from_config(&config);
 
-            match client.projects(None).await {
+            match client.projects(None, None).await {
                 Ok(response) => {
                     Message::print_projects(&response);
                 }

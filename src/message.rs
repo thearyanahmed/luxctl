@@ -34,23 +34,15 @@ impl Message {
     }
 
     pub fn print_projects(response: &PaginatedResponse<Project>) {
-        Self::say(&format!("Available projects ({} total):\n", response.meta.total));
+        Self::say(&format!("available projects ({} total):\n", response.meta.total));
 
         for project in &response.data {
             Self::print_project(project);
         }
-
-        if response.meta.last_page > 1 {
-            Self::say(&format!(
-                "Page {} of {}",
-                response.meta.current_page, response.meta.last_page
-            ));
-        }
     }
 
     fn print_project(project: &Project) {
-        let featured = if project.is_featured { " [featured]" } else { "" };
-        println!("  {} {}{}", "→".cyan(), project.name.bold(), featured.yellow());
+        println!("  {} {}", "→".cyan(), project.name.bold());
         println!("    {}", project.short_description.dimmed());
         println!("    slug: {}  tasks: {}\n", project.slug.cyan(), project.tasks_count);
     }

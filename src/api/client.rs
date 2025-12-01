@@ -109,21 +109,16 @@ impl LighthouseAPIClient {
         self.get::<ApiUser>("user", None, Some(headers)).await
     }
 
-    pub async fn projects(&self, page: Option<i32>) -> Result<PaginatedResponse<Project>> {
+    pub async fn projects(&self, page: Option<i32>, per_page: Option<i32>) -> Result<PaginatedResponse<Project>> {
         let headers = self.auth_headers()?;
 
         let mut query_params = HashMap::new();
         if let Some(p) = page {
             query_params.insert("page".to_string(), p.to_string());
         }
+        query_params.insert("per_page".to_string(), per_page.unwrap_or(50).to_string());
 
-        let params = if query_params.is_empty() {
-            None
-        } else {
-            Some(query_params)
-        };
-
-        self.get::<PaginatedResponse<Project>>("projects", params, Some(headers))
+        self.get::<PaginatedResponse<Project>>("projects", Some(query_params), Some(headers))
             .await
     }
 }
