@@ -42,9 +42,9 @@ impl Message {
     }
 
     fn print_project(project: &Project) {
-        println!("  {} {}", "→".cyan(), project.name.bold());
+        println!("  {} {}", "[#]".dimmed(), project.name.bold());
         println!("    {}", project.short_description.dimmed());
-        println!("    slug: {}  tasks: {}\n", project.slug.cyan(), project.tasks_count);
+        println!("    slug: {}  url: {}  tasks: {}\n", project.slug.cyan(), project.url(), project.tasks_count);
     }
 }
 

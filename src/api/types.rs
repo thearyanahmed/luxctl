@@ -59,6 +59,12 @@ pub struct Project {
     pub tasks_count: i32,
 }
 
+impl Project {
+    pub fn url(&self) -> String {
+        format!("https://projectlighthouse.io/projects/{}", self.slug)
+    }
+}
+
 impl ApiUser {
     pub fn id(&self) -> i32 {
         self.id
