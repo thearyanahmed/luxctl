@@ -1,17 +1,62 @@
 use serde::Deserialize;
 
-/// Generic API response wrapper
 #[derive(Debug, Deserialize)]
 pub struct ApiResponse<T> {
     pub data: T,
 }
 
-/// User information from the API
+#[derive(Debug, Deserialize)]
+pub struct PaginatedResponse<T> {
+    pub data: Vec<T>,
+    pub links: PaginationLinks,
+    pub meta: PaginationMeta,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct PaginationLinks {
+    pub first: Option<String>,
+    pub last: Option<String>,
+    pub prev: Option<String>,
+    pub next: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct PaginationMeta {
+    pub current_page: i32,
+    pub from: Option<i32>,
+    pub last_page: i32,
+    pub path: String,
+    pub per_page: i32,
+    pub to: Option<i32>,
+    pub total: i32,
+}
+
 #[derive(Debug, Deserialize)]
 pub struct ApiUser {
     pub id: i32,
     pub name: String,
     pub email: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ProjectStats {
+    pub attempted_count: i32,
+    pub succeed_count: i32,
+    pub failed_count: i32,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct Project {
+    pub id: i32,
+    pub slug: String,
+    pub name: String,
+    pub short_description: String,
+    pub is_published: bool,
+    pub is_featured: bool,
+    pub show_tasks: bool,
+    pub stats: ProjectStats,
+    pub published_at: Option<String>,
+    pub tasks_count: i32,
 }
 
 impl ApiUser {

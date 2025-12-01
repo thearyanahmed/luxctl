@@ -7,7 +7,7 @@ use std::{collections::HashMap, env};
 
 use crate::{config::Config, VERSION};
 
-use super::types::ApiUser;
+use super::types::{ApiUser, PaginatedResponse, Project};
 
 pub struct LighthouseAPIClient {
     pub base_url: String,
@@ -109,8 +109,22 @@ impl LighthouseAPIClient {
         self.get::<ApiUser>("user", None, Some(headers)).await
     }
 
-    pub async fn projects(&self) {
-        // TODO: implement
+    pub async fn projects(&self, page: Option<i32>) -> Result<PaginatedResponse<Project>> {
+        let headers = self.auth_headers()?;
+
+        let mut query_params = HashMap::new();
+        if let Some(p) = page {
+            query_params.insert("page".to_string(), p.to_string());
+        }
+
+        let params = if query_params.is_empty() {
+            None
+        } else {
+            Some(query_params)
+        };
+
+        self.get::<PaginatedResponse<Project>>("projects", params, Some(headers))
+            .await
     }
 }
 
