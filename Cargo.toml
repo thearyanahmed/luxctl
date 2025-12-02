@@ -18,6 +18,7 @@ reqwest = { version = "0.12", features = ["json"] }
 dirs = "5.0"
 secrecy = { version = "0.10.3", features = ["serde"] }
 colored = "3.0.0"
+termimad = "0.30"
 
 [dev-dependencies]
 tempfile = "3"

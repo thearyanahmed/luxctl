@@ -1,4 +1,5 @@
 use colored::Colorize;
+use termimad::MadSkin;
 
 use crate::api::{PaginatedResponse, Project};
 
@@ -53,13 +54,26 @@ impl Message {
 
     pub fn print_project_detail(project: &Project) {
         println!("  {} {}", "[#]".dimmed(), project.name.bold());
+
+        if let Some(desc) = &project.short_description {
+            println!("    {}", desc);
+        }
+
         println!("    {} {}", "slug:".dimmed(), project.slug.dimmed());
-        println!("    {} {}\n", "url:".dimmed(), project.url().dimmed());
+        println!("    {} {}", "url:".dimmed(), project.url().dimmed());
+
+        println!();
 
         if let Some(tasks) = &project.tasks {
             println!("  {} ({}):\n", "tasks".bold(), tasks.len());
+            let skin = MadSkin::default();
             for task in tasks {
                 println!("    {} {}", format!("{}.", task.sort_order).dimmed(), task.title);
+                // Render markdown description with indentation
+                let rendered = format!("{}", skin.text(&task.description, None));
+                for line in rendered.lines() {
+                    println!("      {}", line);
+                }
                 println!("      {} {}\n", "status:".dimmed(), task.status.dimmed());
             }
         }
