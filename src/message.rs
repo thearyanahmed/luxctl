@@ -89,31 +89,17 @@ impl Message {
                 let connector = if is_last { "└" } else { "├" };
                 let line_char = if is_last { " " } else { "│" };
 
-                println!(
-                    "    {}── {}",
-                    connector.dimmed(),
-                    task.title.bold()
-                );
-
-                // Show points, and status only if completed
+                // Show status marker only for completed tasks
                 let is_completed = task.status == "completed" || task.status == "success";
-                if is_completed {
-                    println!(
-                        "    {}   {} {}  {} {}",
-                        line_char.dimmed(),
-                        "points:".dimmed(),
-                        task.scores.dimmed(),
-                        "status:".dimmed(),
-                        task.status.green()
-                    );
-                } else {
-                    println!(
-                        "    {}   {} {}",
-                        line_char.dimmed(),
-                        "points:".dimmed(),
-                        task.scores.dimmed()
-                    );
-                }
+                let status_marker = if is_completed { " ✓".green().to_string() } else { String::new() };
+
+                println!(
+                    "    {}── {} {}  {}",
+                    connector.dimmed(),
+                    task.title.bold(),
+                    task.scores.dimmed(),
+                    status_marker
+                );
 
                 // Add empty line between tasks (except after last)
                 if !is_last {
