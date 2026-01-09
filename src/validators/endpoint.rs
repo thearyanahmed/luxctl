@@ -1,4 +1,4 @@
-use crate::tasks::{TestCase, ValidationContext};
+use crate::tasks::TestCase;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 
@@ -15,13 +15,13 @@ impl EndpointValidator {
         }
     }
 
-    pub async fn validate(&self, _context: &ValidationContext) -> Result<TestCase, String> {
+    pub async fn validate(&self) -> Result<TestCase, String> {
         let addr = format!("127.0.0.1:{}", self.port);
         let mut stream = TcpStream::connect(&addr)
             .await
             .map_err(|e| format!("failed to connect: {}", e))?;
 
-        // Send HTTP GET request
+        // send HTTP GET request
         let request = format!(
             "GET {} HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n",
             self.endpoint
@@ -32,7 +32,7 @@ impl EndpointValidator {
             .await
             .map_err(|e| format!("failed to send request: {}", e))?;
 
-        // Read response
+        // read response
         let mut response = Vec::new();
         stream
             .read_to_end(&mut response)
@@ -40,7 +40,7 @@ impl EndpointValidator {
             .map_err(|e| format!("failed to read response: {}", e))?;
 
         let response_str = String::from_utf8_lossy(&response);
-        // Check for 200 OK status
+        // check for 200 OK status
         let test_result =
             if response_str.contains("HTTP/1.1 200") || response_str.contains("HTTP/1.0 200") {
                 Ok(format!("endpoint {} returned 200 ok", self.endpoint))

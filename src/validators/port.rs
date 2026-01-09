@@ -1,4 +1,4 @@
-use crate::tasks::{TestCase, ValidationContext};
+use crate::tasks::TestCase;
 use tokio::net::TcpStream;
 use tokio::time::{timeout, Duration};
 
@@ -11,7 +11,11 @@ impl PortValidator {
         Self { port }
     }
 
-    pub async fn validate(&self, _context: &ValidationContext) -> Result<TestCase, String> {
+    pub fn port(&self) -> u16 {
+        self.port
+    }
+
+    pub async fn validate(&self) -> Result<TestCase, String> {
         let addr = format!("127.0.0.1:{}", self.port);
         let result = timeout(Duration::from_secs(2), TcpStream::connect(&addr)).await;
 

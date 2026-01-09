@@ -1,4 +1,4 @@
-use crate::tasks::{TestCase, ValidationContext};
+use crate::tasks::TestCase;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 
@@ -21,7 +21,7 @@ impl JsonResponseValidator {
         }
     }
 
-    pub async fn validate(&self, _context: &ValidationContext) -> Result<TestCase, String> {
+    pub async fn validate(&self) -> Result<TestCase, String> {
         let addr = format!("127.0.0.1:{}", self.port);
         let mut stream = TcpStream::connect(&addr)
             .await
@@ -45,7 +45,7 @@ impl JsonResponseValidator {
 
         let response_str = String::from_utf8_lossy(&response);
 
-        // Check for JSON content type
+        // check for JSON content type
         let has_json_header = response_str.lines().any(|line| {
             line.to_lowercase().contains("content-type")
                 && line.to_lowercase().contains("application/json")
