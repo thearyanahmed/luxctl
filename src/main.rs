@@ -2,15 +2,13 @@ use clap::{Parser, Subcommand};
 use color_eyre::eyre::Result;
 
 use lux::{
-    api::{LighthouseAPIClient, SubmitAttemptRequest, TaskOutcome},
+    api::LighthouseAPIClient,
     auth::TokenAuthenticator,
-    cheer, complain,
+    commands,
     config::Config,
     greet,
     message::Message,
-    oops, say,
-    tasks::TestResults,
-    validators::create_validator,
+    oops,
     VERSION,
 };
 
@@ -24,14 +22,34 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
+    /// Authenticate with your API token
     Auth {
         #[arg(short = 't', long)]
         token: String,
     },
 
+    /// List available projects or get project details
+    Projects {
+        #[arg(short = 's', long)]
+        slug: Option<String>,
+    },
+
+    /// Manage active project
+    Project {
+        #[command(subcommand)]
+        action: ProjectAction,
+    },
+
+    /// List tasks for active project
+    Tasks {
+        #[arg(short = 'r', long)]
+        refresh: bool,
+    },
+
+    /// Run validators for a specific task
     Run {
         #[arg(short = 'p', long)]
-        project: String,
+        project: Option<String>,
 
         #[arg(short = 't', long)]
         task: String,
@@ -40,10 +58,27 @@ enum Commands {
         detailed: bool,
     },
 
-    Projects {
-        #[arg(short = 's', long)]
-        slug: Option<String>,
+    /// Validate all tasks in active project
+    Validate {
+        #[arg(short = 'd', long)]
+        detailed: bool,
+
+        #[arg(short = 'a', long)]
+        all: bool,
     },
+}
+
+#[derive(Subcommand)]
+enum ProjectAction {
+    /// Start working on a project
+    Start {
+        #[arg(short = 's', long)]
+        slug: String,
+    },
+    /// Show active project status
+    Status,
+    /// Stop working on active project
+    Stop,
 }
 
 impl Commands {
@@ -71,6 +106,7 @@ async fn main() -> Result<()> {
                 }
             }
         }
+
         Commands::Projects { slug } => {
             let config = Config::load()?;
             if !config.has_auth_token() {
@@ -99,140 +135,33 @@ async fn main() -> Result<()> {
                 },
             }
         }
-        Commands::Run { project, task, detailed } => {
-            let config = Config::load()?;
-            if !config.has_auth_token() {
-                oops!("not authenticated. Run: `{}`", Commands::AUTH_USAGE);
-                return Ok(());
+
+        Commands::Project { action } => match action {
+            ProjectAction::Start { slug } => {
+                commands::project::start(&slug).await?;
             }
-
-            let client = LighthouseAPIClient::from_config(&config);
-
-            // fetch project with tasks
-            let project_data = match client.project_by_slug(&project).await {
-                Ok(p) => p,
-                Err(err) => {
-                    oops!("failed to fetch project '{}': {}", project, err);
-                    return Ok(());
-                }
-            };
-
-            // find the task by slug
-            let tasks = match &project_data.tasks {
-                Some(t) => t,
-                None => {
-                    oops!("project '{}' has no tasks", project);
-                    return Ok(());
-                }
-            };
-
-            let task_data = match tasks.iter().find(|t| t.slug == task) {
-                Some(t) => t,
-                None => {
-                    oops!("task '{}' not found in project '{}'", task, project);
-                    say!("available tasks:");
-                    for t in tasks {
-                        say!("  - {}", t.slug);
-                    }
-                    return Ok(());
-                }
-            };
-
-            // check if task already completed
-            let already_passed = task_data.status == "challenge_completed";
-            if already_passed {
-                complain!("you've already passed this task");
-                say!("running validators anyway for verification...");
+            ProjectAction::Status => {
+                commands::project::status().await?;
             }
-
-            // print task info
-            Message::print_task_header(task_data, detailed);
-
-            // run validators
-            if task_data.validators.is_empty() {
-                say!("no validators defined for this task");
-                return Ok(());
+            ProjectAction::Stop => {
+                commands::project::stop().await?;
             }
+        },
 
-            Message::print_validators_start(task_data.validators.len());
+        Commands::Tasks { refresh } => {
+            commands::tasks::list(refresh).await?;
+        }
 
-            let mut results = TestResults::new();
+        Commands::Run {
+            project,
+            task,
+            detailed,
+        } => {
+            commands::run::run(&task, project.as_deref(), detailed).await?;
+        }
 
-            for (i, validator_str) in task_data.validators.iter().enumerate() {
-                log::debug!("parsing validator: {}", validator_str);
-
-                let validator = match create_validator(validator_str) {
-                    Ok(v) => v,
-                    Err(err) => {
-                        oops!("invalid validator '{}': {}", validator_str, err);
-                        continue;
-                    }
-                };
-
-                match validator.validate().await {
-                    Ok(test_case) => {
-                        Message::print_test_case(&test_case, i);
-                        results.add(test_case);
-                    }
-                    Err(err) => {
-                        // connection errors get special treatment
-                        if err.contains("connection failed") || err.contains("connection timeout") {
-                            Message::print_connection_error(4221);
-                            return Ok(());
-                        }
-                        oops!("validator error: {}", err);
-                    }
-                }
-            }
-
-            Message::print_test_results(&results);
-
-            // report results back to API
-            let outcome = if results.all_passed() {
-                TaskOutcome::Passed
-            } else {
-                TaskOutcome::Failed
-            };
-
-            // build context string from test results
-            let context = results
-                .tests
-                .iter()
-                .enumerate()
-                .map(|(i, t)| {
-                    let status = if t.passed() { "PASS" } else { "FAIL" };
-                    format!("#{} [{}] {}: {}", i + 1, status, t.name, t.message())
-                })
-                .collect::<Vec<_>>()
-                .join("\n");
-
-            let attempt_request = SubmitAttemptRequest {
-                project_slug: project.clone(),
-                task_id: task_data.id,
-                task_outcome: outcome,
-                points_achieved: None, // TODO: calculate based on scoring rules
-                task_outcome_context: Some(context),
-            };
-
-            match client.submit_attempt(&attempt_request).await {
-                Ok(response) => {
-                    log::debug!("attempt recorded: {:?}", response);
-                    if response.data.is_reattempt {
-                        say!("re-attempt recorded (no additional points)");
-                    } else if response.data.task_outcome == "passed" {
-                        cheer!(
-                            "task completed! +{} points",
-                            response.data.points_achieved
-                        );
-                    } else {
-                        say!("attempt recorded");
-                    }
-                }
-                Err(err) => {
-                    log::error!("failed to submit attempt: {}", err);
-                    oops!("failed to submit results: {}", err);
-                }
-            }
+        Commands::Validate { detailed, all } => {
+            commands::validate::validate_all(all, detailed).await?;
         }
     }
 
