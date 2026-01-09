@@ -2,6 +2,7 @@ use colored::Colorize;
 use termimad::MadSkin;
 
 use crate::api::{PaginatedResponse, Project, Task};
+use crate::state::ActiveProject;
 use crate::tasks::{TestCase, TestResults};
 
 pub struct Message;
@@ -185,6 +186,59 @@ impl Message {
         println!("    make sure your server is running:");
         println!("    {}", "  ./your-server".dimmed());
         println!();
+    }
+
+    /// print task list for active project
+    pub fn print_task_list(project: &ActiveProject) {
+        Self::say(&format!("tasks for: {}\n", project.name.bold()));
+
+        // table header
+        println!(
+            "  {}  {}  {}  {}",
+            "#".dimmed(),
+            "Status".dimmed(),
+            format!("{:30}", "Task").dimmed(),
+            "Points".dimmed()
+        );
+
+        // compute earned points
+        let mut earned = 0;
+
+        for (i, task) in project.tasks.iter().enumerate() {
+            let (status, status_color) = match task.status.as_str() {
+                "challenge_completed" => {
+                    earned += task.points;
+                    ("[DONE]".to_string(), "green")
+                }
+                "challenge_failed" => ("[FAIL]".to_string(), "red"),
+                "challenged" => ("[....]".to_string(), "yellow"),
+                _ => ("[    ]".to_string(), "white"),
+            };
+
+            let status_display = match status_color {
+                "green" => status.green().to_string(),
+                "red" => status.red().to_string(),
+                "yellow" => status.yellow().to_string(),
+                _ => status.dimmed().to_string(),
+            };
+
+            println!(
+                "  {}  {}  {}  {} XP",
+                format!("{}", i + 1).dimmed(),
+                status_display,
+                format!("{:30}", task.title),
+                task.points
+            );
+        }
+
+        println!();
+        println!(
+            "       progress: {}/{} completed | {}/{} XP earned",
+            project.completed_count(),
+            project.tasks.len(),
+            earned,
+            project.total_points()
+        );
     }
 }
 
