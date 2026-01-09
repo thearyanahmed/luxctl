@@ -7,7 +7,7 @@ use std::{collections::HashMap, env};
 
 use crate::{config::Config, VERSION};
 
-use super::types::{ApiError, ApiUser, PaginatedResponse, Project};
+use super::types::{ApiError, ApiUser, PaginatedResponse, Project, SubmitAttemptRequest, SubmitAttemptResponse};
 
 pub struct LighthouseAPIClient {
     pub base_url: String,
@@ -104,6 +104,34 @@ impl LighthouseAPIClient {
         let data = response.json::<T>().await?;
         Ok(data)
     }
+
+    async fn post<T: DeserializeOwned, B: serde::Serialize>(
+        &self,
+        endpoint: &str,
+        body: &B,
+        headers: Option<HeaderMap>,
+    ) -> Result<T> {
+        let url = format!("{}/api/{}/{}", self.base_url, self.api_version, endpoint);
+
+        let mut request = self.client.post(url).json(body);
+
+        if let Some(headers) = headers {
+            request = request.headers(headers);
+        }
+
+        let response = request.send().await?;
+
+        if !response.status().is_success() {
+            let error_text = response.text().await?;
+            let message = serde_json::from_str::<ApiError>(&error_text)
+                .map(|e| e.message)
+                .unwrap_or(error_text);
+            return Err(eyre!("{}", message));
+        }
+
+        let data = response.json::<T>().await?;
+        Ok(data)
+    }
 }
 
 impl LighthouseAPIClient {
@@ -133,6 +161,11 @@ impl LighthouseAPIClient {
         let headers = self.auth_headers()?;
         let endpoint = format!("projects/{}", slug);
         self.get::<Project>(&endpoint, None, Some(headers)).await
+    }
+
+    pub async fn submit_attempt(&self, request: &SubmitAttemptRequest) -> Result<SubmitAttemptResponse> {
+        let headers = self.auth_headers()?;
+        self.post::<SubmitAttemptResponse, _>("projects/attempts", request, Some(headers)).await
     }
 }
 

@@ -1,4 +1,4 @@
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize)]
 pub struct ApiError {
@@ -101,6 +101,55 @@ pub struct Hint {
     pub text: String,
     pub unlock_criteria: String,
     pub points_deduction: i32,
+}
+
+/// outcome values for task attempts
+#[derive(Debug, Clone, Copy, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum TaskOutcome {
+    Attempted,
+    Passed,
+    Failed,
+}
+
+impl std::fmt::Display for TaskOutcome {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            TaskOutcome::Attempted => write!(f, "attempted"),
+            TaskOutcome::Passed => write!(f, "passed"),
+            TaskOutcome::Failed => write!(f, "failed"),
+        }
+    }
+}
+
+/// request body for submitting a task attempt
+#[derive(Debug, Serialize)]
+pub struct SubmitAttemptRequest {
+    pub project_slug: String,
+    pub task_id: i32,
+    pub task_outcome: TaskOutcome,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub points_achieved: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub task_outcome_context: Option<String>,
+}
+
+/// response from submitting a task attempt
+#[derive(Debug, Deserialize)]
+pub struct SubmitAttemptResponse {
+    pub message: String,
+    pub data: AttemptData,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AttemptData {
+    pub id: i32,
+    pub task_id: i32,
+    pub project_id: i32,
+    pub task_outcome: String,
+    pub points_achieved: i32,
+    pub is_reattempt: bool,
+    pub created_at: String,
 }
 
 impl ApiUser {
