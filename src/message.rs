@@ -1,12 +1,12 @@
 use colored::Colorize;
 use termimad::MadSkin;
 
-use crate::api::{PaginatedResponse, Project};
+use crate::api::{PaginatedResponse, Project, Task};
+use crate::tasks::{TestCase, TestResults};
 
 pub struct Message;
 
-// Fixed width for all prefixes (7 chars = "[ERROR]")
-const PREFIX_WIDTH: usize = 7;
+// All prefixes padded inside brackets to match "[ERROR]" (5 chars inside)
 
 impl Message {
     pub fn greet(name: &str) {
@@ -15,28 +15,23 @@ impl Message {
             name.bold(),
             "projectlighthouse".yellow()
         );
-        println!("{:>WIDTH$} {}", "[LUX]".blue(), msg, WIDTH = PREFIX_WIDTH);
+        println!("{} {}", "[LUX  ]".blue(), msg);
     }
 
     pub fn say(msg: &str) {
-        println!("{:>WIDTH$} {}", "[LUX]".blue(), msg, WIDTH = PREFIX_WIDTH);
+        println!("{} {}", "[LUX  ]".blue(), msg);
     }
 
     pub fn cheer(msg: &str) {
-        println!("{:>WIDTH$} {}", "[OK]".green(), msg, WIDTH = PREFIX_WIDTH);
+        println!("{} {}", "[OK   ]".green(), msg);
     }
 
     pub fn complain(msg: &str) {
-        eprintln!(
-            "{:>WIDTH$} {}",
-            "[WARN]".yellow(),
-            msg,
-            WIDTH = PREFIX_WIDTH
-        );
+        eprintln!("{} {}", "[WARN ]".yellow(), msg);
     }
 
     pub fn oops(msg: &str) {
-        eprintln!("{:>WIDTH$} {}", "[ERROR]".red(), msg, WIDTH = PREFIX_WIDTH);
+        eprintln!("{} {}", "[ERROR]".red(), msg);
     }
 
     pub fn print_projects(response: &PaginatedResponse<Project>) {
@@ -120,6 +115,76 @@ impl Message {
                 }
             }
         }
+    }
+
+    pub fn print_task_header(task: &Task, detailed: bool) {
+        println!("{} {}", "[TASK ]".blue(), task.title.bold());
+
+        if detailed {
+            let skin = MadSkin::default();
+            let rendered = format!("{}", skin.text(&task.description, None));
+            for line in rendered.lines() {
+                println!("    {}", line);
+            }
+        }
+    }
+
+    pub fn print_validators_start(count: usize) {
+        println!(
+            "{} running {} validator{}...",
+            "[RUN  ]".blue(),
+            count,
+            if count == 1 { "" } else { "s" }
+        );
+    }
+
+    pub fn print_test_case(test: &TestCase, index: usize) {
+        let status_str = if test.passed() {
+            "[PASS ]".green()
+        } else {
+            "[FAIL ]".red()
+        };
+
+        println!(
+            "{} {} {}",
+            status_str,
+            format!("#{}", index + 1).dimmed(),
+            test.name
+        );
+
+        // show message on failure
+        if !test.passed() {
+            // 7 chars bracket + 1 space = 8 chars indent
+            println!("{:8}{}", "", test.message().red());
+        }
+    }
+
+    pub fn print_test_results(results: &TestResults) {
+        if results.all_passed() {
+            println!(
+                "{} all {} tests passed!",
+                "[OK   ]".green(),
+                results.total()
+            );
+        } else {
+            println!(
+                "{} {}/{} tests passed",
+                "[FAIL ]".red(),
+                results.passed(),
+                results.total()
+            );
+        }
+    }
+
+    pub fn print_connection_error(port: u16) {
+        Self::oops(&format!(
+            "could not connect to server on port {}",
+            port
+        ));
+        println!();
+        println!("    make sure your server is running:");
+        println!("    {}", "  ./your-server".dimmed());
+        println!();
     }
 }
 
