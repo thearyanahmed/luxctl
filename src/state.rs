@@ -210,7 +210,6 @@ impl Default for ProjectState {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tempfile::TempDir;
 
     fn test_token() -> &'static str {
         "test-secret-token-123"
