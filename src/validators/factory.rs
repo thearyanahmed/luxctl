@@ -1,3 +1,4 @@
+use super::compile::CanCompileValidator;
 use super::http::{
     ConcurrentRequestsValidator, HttpGetValidator, HttpGetWithHeaderValidator,
     HttpHeaderPresentValidator, HttpHeaderValueValidator, HttpPostFileValidator,
@@ -17,6 +18,7 @@ pub enum RuntimeValidator {
     HttpGetWithHeader(HttpGetWithHeaderValidator),
     ConcurrentRequests(ConcurrentRequestsValidator),
     HttpPostFile(HttpPostFileValidator),
+    CanCompile(CanCompileValidator),
     // placeholder for validators not yet implemented
     NotImplemented(String),
 }
@@ -32,6 +34,7 @@ impl RuntimeValidator {
             RuntimeValidator::HttpGetWithHeader(v) => v.validate().await,
             RuntimeValidator::ConcurrentRequests(v) => v.validate().await,
             RuntimeValidator::HttpPostFile(v) => v.validate().await,
+            RuntimeValidator::CanCompile(v) => v.validate().await,
             RuntimeValidator::NotImplemented(name) => Ok(TestCase {
                 name: format!("validator '{}'", name),
                 result: Err(format!("validator '{}' not implemented yet", name)),
@@ -49,6 +52,7 @@ impl RuntimeValidator {
             RuntimeValidator::HttpGetWithHeader(_) => "http_get_with_header",
             RuntimeValidator::ConcurrentRequests(_) => "concurrent_requests",
             RuntimeValidator::HttpPostFile(_) => "http_post_file",
+            RuntimeValidator::CanCompile(_) => "can_compile",
             RuntimeValidator::NotImplemented(name) => name,
         }
     }
@@ -71,8 +75,9 @@ fn create_from_parsed(parsed: &ParsedValidator) -> Result<RuntimeValidator, Stri
         "http_get_with_header" => create_http_get_with_header(parsed),
         "concurrent_requests" => create_concurrent_requests(parsed),
         "http_post_file" => create_http_post_file(parsed),
+        "can_compile" => create_can_compile(parsed),
         // validators we know about but haven't implemented yet
-        "can_compile" | "http_get_file" | "file_contents_match" | "http_get_compressed" => {
+        "http_get_file" | "file_contents_match" | "http_get_compressed" => {
             Ok(RuntimeValidator::NotImplemented(parsed.name.clone()))
         }
         _ => Ok(RuntimeValidator::NotImplemented(parsed.name.clone())),
@@ -176,6 +181,14 @@ fn create_http_post_file(parsed: &ParsedValidator) -> Result<RuntimeValidator, S
     )))
 }
 
+// can_compile:bool(true)
+fn create_can_compile(parsed: &ParsedValidator) -> Result<RuntimeValidator, String> {
+    let expected_success = parsed.param_as_bool(0)?;
+    Ok(RuntimeValidator::CanCompile(CanCompileValidator::new(
+        expected_success,
+    )))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -244,11 +257,17 @@ mod tests {
 
     #[test]
     fn test_not_implemented_validators() {
-        let names = ["can_compile:bool(true)", "http_get_file:string(/files/test.txt),int(200)"];
+        let names = ["http_get_file:string(/files/test.txt),int(200)"];
 
         for name in names {
             let validator = create_validator(name).unwrap();
             matches!(validator, RuntimeValidator::NotImplemented(_));
         }
+    }
+
+    #[test]
+    fn test_create_can_compile() {
+        let validator = create_validator("can_compile:bool(true)").unwrap();
+        assert_eq!(validator.name(), "can_compile");
     }
 }
