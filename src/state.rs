@@ -187,12 +187,16 @@ impl ProjectState {
     }
 
     /// compute HMAC-SHA256 checksum of project data
+    /// returns empty string if HMAC creation fails (should never happen for SHA256)
     fn compute_checksum(project: &Option<ActiveProject>, token: &str) -> String {
         // derive key from token + salt
         let key = format!("{}{}", token, HMAC_SALT);
 
-        let mut mac =
-            HmacSha256::new_from_slice(key.as_bytes()).expect("HMAC can take key of any size");
+        // HMAC-SHA256 accepts any key length, so this should never fail
+        let Some(mut mac) = HmacSha256::new_from_slice(key.as_bytes()).ok() else {
+            log::error!("failed to create HMAC - this should never happen");
+            return String::new();
+        };
 
         // hash the project data as JSON
         let data = serde_json::to_string(project).unwrap_or_default();

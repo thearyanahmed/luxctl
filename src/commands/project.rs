@@ -39,7 +39,7 @@ pub async fn start(slug: &str) -> Result<()> {
 }
 
 /// handle `lux project status`
-pub async fn status() -> Result<()> {
+pub fn status() -> Result<()> {
     let config = Config::load()?;
     if !config.has_auth_token() {
         oops!("not authenticated. Run: `lux auth --token <TOKEN>`");
@@ -66,7 +66,7 @@ pub async fn status() -> Result<()> {
 }
 
 /// handle `lux project stop`
-pub async fn stop() -> Result<()> {
+pub fn stop() -> Result<()> {
     let config = Config::load()?;
     if !config.has_auth_token() {
         oops!("not authenticated. Run: `lux auth --token <TOKEN>`");

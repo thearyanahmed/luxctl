@@ -165,10 +165,10 @@ async fn main() -> Result<()> {
                 commands::project::start(&slug).await?;
             }
             ProjectAction::Status => {
-                commands::project::status().await?;
+                commands::project::status()?;
             }
             ProjectAction::Stop => {
-                commands::project::stop().await?;
+                commands::project::stop()?;
             }
         },
 

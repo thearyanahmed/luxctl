@@ -6,11 +6,6 @@ pub struct ApiError {
 }
 
 #[derive(Debug, Deserialize)]
-pub struct ApiResponse<T> {
-    pub data: T,
-}
-
-#[derive(Debug, Deserialize)]
 pub struct PaginatedResponse<T> {
     pub data: Vec<T>,
     pub links: PaginationLinks,
@@ -211,15 +206,6 @@ mod tests {
 
         assert_eq!(user.id(), 42);
         assert_eq!(user.name(), "Test User");
-    }
-
-    #[test]
-    fn test_api_response_deserialize() {
-        let json = r#"{"data": {"id": 1, "name": "John", "email": "john@example.com"}}"#;
-        let response: ApiResponse<ApiUser> = serde_json::from_str(json).unwrap();
-
-        assert_eq!(response.data.id, 1);
-        assert_eq!(response.data.name, "John");
     }
 
     #[test]

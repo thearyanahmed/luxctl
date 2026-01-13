@@ -222,11 +222,13 @@ impl Message {
                 _ => status.dimmed().to_string(),
             };
 
+            let index = (i + 1).to_string();
+            let title_padded = format!("{:30}", task.title);
             println!(
                 "  {}  {}  {}  {} XP",
-                format!("{}", i + 1).dimmed(),
+                index.dimmed(),
                 status_display,
-                format!("{:30}", task.title),
+                title_padded,
                 task.points
             );
         }

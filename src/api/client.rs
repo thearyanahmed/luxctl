@@ -34,9 +34,10 @@ impl LighthouseAPIClient {
     }
 
     pub fn from_config(config: &Config) -> LighthouseAPIClient {
-        let mut client = LighthouseAPIClient::default();
-        client.token = Some(SecretString::from(config.expose_token().to_string()));
-        client
+        LighthouseAPIClient {
+            token: Some(SecretString::from(config.expose_token().to_string())),
+            ..Default::default()
+        }
     }
 
     fn auth_headers(&self) -> Result<HeaderMap> {
