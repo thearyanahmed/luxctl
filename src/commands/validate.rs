@@ -17,13 +17,10 @@ pub async fn validate_all(include_passed: bool, detailed: bool) -> Result<()> {
     let token = config.expose_token().to_string();
     let mut state = ProjectState::load(&token)?;
 
-    let active = match state.get_active() {
-        Some(p) => p.clone(),
-        None => {
-            oops!("no active project");
-            say!("run `lux project start --slug <SLUG>` first");
-            return Ok(());
-        }
+    let active = if let Some(p) = state.get_active() { p.clone() } else {
+        oops!("no active project");
+        say!("run `lux project start --slug <SLUG>` first");
+        return Ok(());
     };
 
     let client = LighthouseAPIClient::from_config(&config);
@@ -37,12 +34,9 @@ pub async fn validate_all(include_passed: bool, detailed: bool) -> Result<()> {
         }
     };
 
-    let tasks = match &project.tasks {
-        Some(t) => t,
-        None => {
-            oops!("project has no tasks");
-            return Ok(());
-        }
+    let tasks = if let Some(t) = &project.tasks { t } else {
+        oops!("project has no tasks");
+        return Ok(());
     };
 
     // update cache with fresh data

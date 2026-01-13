@@ -23,13 +23,10 @@ pub async fn run(task_slug: &str, project_slug: Option<&str>, detailed: bool) ->
     // determine project slug (from arg or active project)
     let project_slug = match project_slug {
         Some(s) => s.to_string(),
-        None => match state.get_active() {
-            Some(p) => p.slug.clone(),
-            None => {
-                oops!("no project specified and no active project");
-                say!("use `--project <SLUG>` or run `lux project start --slug <SLUG>` first");
-                return Ok(());
-            }
+        None => if let Some(p) = state.get_active() { p.slug.clone() } else {
+            oops!("no project specified and no active project");
+            say!("use `--project <SLUG>` or run `lux project start --slug <SLUG>` first");
+            return Ok(());
         },
     };
 
@@ -43,24 +40,18 @@ pub async fn run(task_slug: &str, project_slug: Option<&str>, detailed: bool) ->
     };
 
     // find the task by slug
-    let tasks = match &project_data.tasks {
-        Some(t) => t,
-        None => {
-            oops!("project '{}' has no tasks", project_slug);
-            return Ok(());
-        }
+    let tasks = if let Some(t) = &project_data.tasks { t } else {
+        oops!("project '{}' has no tasks", project_slug);
+        return Ok(());
     };
 
-    let task_data = match tasks.iter().find(|t| t.slug == task_slug) {
-        Some(t) => t,
-        None => {
-            oops!("task '{}' not found in project '{}'", task_slug, project_slug);
-            say!("available tasks:");
-            for t in tasks {
-                say!("  - {}", t.slug);
-            }
-            return Ok(());
+    let task_data = if let Some(t) = tasks.iter().find(|t| t.slug == task_slug) { t } else {
+        oops!("task '{}' not found in project '{}'", task_slug, project_slug);
+        say!("available tasks:");
+        for t in tasks {
+            say!("  - {}", t.slug);
         }
+        return Ok(());
     };
 
     run_task_validators(

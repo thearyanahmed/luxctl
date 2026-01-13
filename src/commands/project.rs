@@ -25,7 +25,7 @@ pub async fn start(slug: &str) -> Result<()> {
         }
     };
 
-    let tasks = project.tasks.as_ref().map(|t| t.as_slice()).unwrap_or(&[]);
+    let tasks = project.tasks.as_deref().unwrap_or(&[]);
 
     // save to state
     let mut state = ProjectState::load(config.expose_token())?;
@@ -48,21 +48,18 @@ pub async fn status() -> Result<()> {
 
     let state = ProjectState::load(config.expose_token())?;
 
-    match state.get_active() {
-        Some(project) => {
-            say!("active project: {}", project.name);
-            say!("       slug: {}", project.slug);
-            say!(
-                "   progress: {}/{} tasks completed",
-                project.completed_count(),
-                project.tasks.len()
-            );
-            say!("run `lux tasks` for task list");
-        }
-        None => {
-            say!("no active project");
-            say!("run `lux project start --slug <SLUG>` to start one");
-        }
+    if let Some(project) = state.get_active() {
+        say!("active project: {}", project.name);
+        say!("       slug: {}", project.slug);
+        say!(
+            "   progress: {}/{} tasks completed",
+            project.completed_count(),
+            project.tasks.len()
+        );
+        say!("run `lux tasks` for task list");
+    } else {
+        say!("no active project");
+        say!("run `lux project start --slug <SLUG>` to start one");
     }
 
     Ok(())
