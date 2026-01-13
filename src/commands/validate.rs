@@ -14,7 +14,8 @@ pub async fn validate_all(include_passed: bool, detailed: bool) -> Result<()> {
         return Ok(());
     }
 
-    let mut state = ProjectState::load(config.expose_token())?;
+    let token = config.expose_token().to_string();
+    let mut state = ProjectState::load(&token)?;
 
     let active = match state.get_active() {
         Some(p) => p.clone(),
@@ -46,7 +47,7 @@ pub async fn validate_all(include_passed: bool, detailed: bool) -> Result<()> {
 
     // update cache with fresh data
     state.refresh_tasks(tasks);
-    state.save(config.expose_token())?;
+    state.save(&token)?;
 
     // filter tasks
     let mut to_run = Vec::new();
@@ -95,8 +96,15 @@ pub async fn validate_all(include_passed: bool, detailed: bool) -> Result<()> {
             task.slug
         );
 
-        // run validators and submit results
-        run_task_validators(&client, &project.slug, task, detailed).await?;
+        // run validators and submit results (pass state for auto-refresh)
+        run_task_validators(
+            &client,
+            &project.slug,
+            task,
+            detailed,
+            Some((&mut state, &token)),
+        )
+        .await?;
     }
 
     // print summary

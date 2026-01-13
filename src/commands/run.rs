@@ -16,7 +16,8 @@ pub async fn run(task_slug: &str, project_slug: Option<&str>, detailed: bool) ->
         return Ok(());
     }
 
-    let state = ProjectState::load(config.expose_token())?;
+    let token = config.expose_token().to_string();
+    let mut state = ProjectState::load(&token)?;
     let client = LighthouseAPIClient::from_config(&config);
 
     // determine project slug (from arg or active project)
@@ -62,15 +63,24 @@ pub async fn run(task_slug: &str, project_slug: Option<&str>, detailed: bool) ->
         }
     };
 
-    run_task_validators(&client, &project_data.slug, task_data, detailed).await
+    run_task_validators(
+        &client,
+        &project_data.slug,
+        task_data,
+        detailed,
+        Some((&mut state, &token)),
+    )
+    .await
 }
 
 /// run validators for a single task and submit results
+/// optionally updates cached state when state_ctx is provided
 pub async fn run_task_validators(
     client: &LighthouseAPIClient,
     project_slug: &str,
     task: &Task,
     detailed: bool,
+    state_ctx: Option<(&mut ProjectState, &str)>,
 ) -> Result<()> {
     // check if task already completed
     let already_passed = task.status == "challenge_completed";
@@ -157,6 +167,19 @@ pub async fn run_task_validators(
                 cheer!("task completed! +{} points", response.data.points_achieved);
             } else {
                 say!("attempt recorded");
+            }
+
+            // update cached task status if state context provided
+            if let Some((state, token)) = state_ctx {
+                let new_status = if response.data.task_outcome == "passed" {
+                    "challenge_completed"
+                } else {
+                    "challenged"
+                };
+                state.update_task_status(task.id, new_status);
+                if let Err(e) = state.save(token) {
+                    log::warn!("failed to save state: {}", e);
+                }
             }
         }
         Err(err) => {

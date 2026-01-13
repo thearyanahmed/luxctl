@@ -177,6 +177,15 @@ impl ProjectState {
         }
     }
 
+    /// update a single task's status (e.g., after successful submission)
+    pub fn update_task_status(&mut self, task_id: i32, new_status: &str) {
+        if let Some(ref mut project) = self.active_project {
+            if let Some(task) = project.tasks.iter_mut().find(|t| t.id == task_id) {
+                task.status = new_status.to_string();
+            }
+        }
+    }
+
     /// compute HMAC-SHA256 checksum of project data
     fn compute_checksum(project: &Option<ActiveProject>, token: &str) -> String {
         // derive key from token + salt
