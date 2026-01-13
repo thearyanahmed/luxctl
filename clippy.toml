@@ -1,0 +1,16 @@
+# Clippy configuration file
+#
+# This file contains clippy SETTINGS (thresholds, MSRV, etc.)
+# Lint LEVELS (warn/deny/allow) must be configured in Cargo.toml under [lints.clippy]
+
+# Minimum supported Rust version
+msrv = "1.85"
+
+# Cognitive complexity threshold before warning
+cognitive-complexity-threshold = 25
+
+# Maximum number of function arguments before warning
+too-many-arguments-threshold = 7
+
+# Maximum number of lines in a function before warning
+too-many-lines-threshold = 100
