@@ -1,9 +1,9 @@
 use super::compile::CanCompileValidator;
 use super::file::FileContentsMatchValidator;
 use super::http::{
-    ConcurrentRequestsValidator, HttpGetFileValidator, HttpGetValidator,
-    HttpGetWithHeaderValidator, HttpHeaderPresentValidator, HttpHeaderValueValidator,
-    HttpPostFileValidator, HttpStatusValidator,
+    ConcurrentRequestsValidator, HttpGetCompressedValidator, HttpGetFileValidator,
+    HttpGetValidator, HttpGetWithHeaderValidator, HttpHeaderPresentValidator,
+    HttpHeaderValueValidator, HttpPostFileValidator, HttpStatusValidator,
 };
 use super::parser::{parse_validator, ParsedValidator};
 use super::port::PortValidator;
@@ -20,6 +20,7 @@ pub enum RuntimeValidator {
     ConcurrentRequests(ConcurrentRequestsValidator),
     HttpPostFile(HttpPostFileValidator),
     HttpGetFile(HttpGetFileValidator),
+    HttpGetCompressed(HttpGetCompressedValidator),
     FileContentsMatch(FileContentsMatchValidator),
     CanCompile(CanCompileValidator),
     // placeholder for validators not yet implemented
@@ -38,6 +39,7 @@ impl RuntimeValidator {
             RuntimeValidator::ConcurrentRequests(v) => v.validate().await,
             RuntimeValidator::HttpPostFile(v) => v.validate().await,
             RuntimeValidator::HttpGetFile(v) => v.validate().await,
+            RuntimeValidator::HttpGetCompressed(v) => v.validate().await,
             RuntimeValidator::FileContentsMatch(v) => v.validate().await,
             RuntimeValidator::CanCompile(v) => v.validate().await,
             RuntimeValidator::NotImplemented(name) => Ok(TestCase {
@@ -58,6 +60,7 @@ impl RuntimeValidator {
             RuntimeValidator::ConcurrentRequests(_) => "concurrent_requests",
             RuntimeValidator::HttpPostFile(_) => "http_post_file",
             RuntimeValidator::HttpGetFile(_) => "http_get_file",
+            RuntimeValidator::HttpGetCompressed(_) => "http_get_compressed",
             RuntimeValidator::FileContentsMatch(_) => "file_contents_match",
             RuntimeValidator::CanCompile(_) => "can_compile",
             RuntimeValidator::NotImplemented(name) => name,
@@ -84,9 +87,8 @@ fn create_from_parsed(parsed: &ParsedValidator) -> Result<RuntimeValidator, Stri
         "http_post_file" => create_http_post_file(parsed),
         "can_compile" => create_can_compile(parsed),
         "http_get_file" => create_http_get_file(parsed),
+        "http_get_compressed" => create_http_get_compressed(parsed),
         "file_contents_match" => create_file_contents_match(parsed),
-        // validators we know about but haven't implemented yet
-        "http_get_compressed" => Ok(RuntimeValidator::NotImplemented(parsed.name.clone())),
         _ => Ok(RuntimeValidator::NotImplemented(parsed.name.clone())),
     }
 }
@@ -206,6 +208,15 @@ fn create_http_get_file(parsed: &ParsedValidator) -> Result<RuntimeValidator, St
     )))
 }
 
+// http_get_compressed:string(/path),string(gzip)
+fn create_http_get_compressed(parsed: &ParsedValidator) -> Result<RuntimeValidator, String> {
+    let path = parsed.param_as_string(0)?;
+    let encoding = parsed.param_as_string(1)?;
+    Ok(RuntimeValidator::HttpGetCompressed(
+        HttpGetCompressedValidator::new(path, encoding),
+    ))
+}
+
 // file_contents_match:string(/path/to/file),string(expected content)
 fn create_file_contents_match(parsed: &ParsedValidator) -> Result<RuntimeValidator, String> {
     let path = parsed.param_as_string(0)?;
@@ -283,12 +294,19 @@ mod tests {
 
     #[test]
     fn test_not_implemented_validators() {
-        let names = ["http_get_compressed:string(/compressed),string(gzip)"];
+        let names = ["unknown_future_validator:string(test)"];
 
         for name in names {
             let validator = create_validator(name).unwrap();
             matches!(validator, RuntimeValidator::NotImplemented(_));
         }
+    }
+
+    #[test]
+    fn test_create_http_get_compressed() {
+        let validator =
+            create_validator("http_get_compressed:string(/compressed),string(gzip)").unwrap();
+        assert_eq!(validator.name(), "http_get_compressed");
     }
 
     #[test]

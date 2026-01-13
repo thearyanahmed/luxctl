@@ -534,6 +534,50 @@ impl HttpGetFileValidator {
     }
 }
 
+/// Validator: test server supports compressed responses
+pub struct HttpGetCompressedValidator {
+    pub port: u16,
+    pub path: String,
+    pub encoding: String,
+}
+
+impl HttpGetCompressedValidator {
+    pub fn new(path: &str, encoding: &str) -> Self {
+        Self {
+            port: DEFAULT_PORT,
+            path: path.to_string(),
+            encoding: encoding.to_string(),
+        }
+    }
+
+    pub async fn validate(&self) -> Result<TestCase, String> {
+        let headers = [("Accept-Encoding", self.encoding.as_str())];
+        let response = http_request(self.port, "GET", &self.path, &headers, None).await?;
+
+        let content_encoding = response.get_header("content-encoding");
+
+        let result = match content_encoding {
+            Some(actual) if actual.to_lowercase() == self.encoding.to_lowercase() => Ok(format!(
+                "server returned Content-Encoding: {}",
+                self.encoding
+            )),
+            Some(actual) => Err(format!(
+                "expected Content-Encoding '{}', got '{}'",
+                self.encoding, actual
+            )),
+            None => Err(format!(
+                "Content-Encoding header not present, expected '{}'",
+                self.encoding
+            )),
+        };
+
+        Ok(TestCase {
+            name: format!("GET {} with compression {}", self.path, self.encoding),
+            result,
+        })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
