@@ -492,6 +492,48 @@ impl HttpPostFileValidator {
     }
 }
 
+/// Validator: GET file from server and validate status
+pub struct HttpGetFileValidator {
+    pub port: u16,
+    pub path: String,
+    pub expected_status: u16,
+}
+
+impl HttpGetFileValidator {
+    pub fn new(path: &str, expected_status: u16) -> Self {
+        Self {
+            port: DEFAULT_PORT,
+            path: path.to_string(),
+            expected_status,
+        }
+    }
+
+    pub async fn validate(&self) -> Result<TestCase, String> {
+        let response = http_request(self.port, "GET", &self.path, &[], None).await?;
+
+        let result = if response.status_code == self.expected_status {
+            let content_info = response
+                .get_header("content-length")
+                .map(|len| format!(" ({} bytes)", len))
+                .unwrap_or_default();
+            Ok(format!(
+                "GET {} returned {}{} OK",
+                self.path, self.expected_status, content_info
+            ))
+        } else {
+            Err(format!(
+                "expected status {}, got {}",
+                self.expected_status, response.status_code
+            ))
+        };
+
+        Ok(TestCase {
+            name: format!("GET file {} returns {}", self.path, self.expected_status),
+            result,
+        })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -1,8 +1,8 @@
 use super::compile::CanCompileValidator;
 use super::http::{
-    ConcurrentRequestsValidator, HttpGetValidator, HttpGetWithHeaderValidator,
-    HttpHeaderPresentValidator, HttpHeaderValueValidator, HttpPostFileValidator,
-    HttpStatusValidator,
+    ConcurrentRequestsValidator, HttpGetFileValidator, HttpGetValidator,
+    HttpGetWithHeaderValidator, HttpHeaderPresentValidator, HttpHeaderValueValidator,
+    HttpPostFileValidator, HttpStatusValidator,
 };
 use super::parser::{parse_validator, ParsedValidator};
 use super::port::PortValidator;
@@ -18,6 +18,7 @@ pub enum RuntimeValidator {
     HttpGetWithHeader(HttpGetWithHeaderValidator),
     ConcurrentRequests(ConcurrentRequestsValidator),
     HttpPostFile(HttpPostFileValidator),
+    HttpGetFile(HttpGetFileValidator),
     CanCompile(CanCompileValidator),
     // placeholder for validators not yet implemented
     NotImplemented(String),
@@ -34,6 +35,7 @@ impl RuntimeValidator {
             RuntimeValidator::HttpGetWithHeader(v) => v.validate().await,
             RuntimeValidator::ConcurrentRequests(v) => v.validate().await,
             RuntimeValidator::HttpPostFile(v) => v.validate().await,
+            RuntimeValidator::HttpGetFile(v) => v.validate().await,
             RuntimeValidator::CanCompile(v) => v.validate().await,
             RuntimeValidator::NotImplemented(name) => Ok(TestCase {
                 name: format!("validator '{}'", name),
@@ -52,6 +54,7 @@ impl RuntimeValidator {
             RuntimeValidator::HttpGetWithHeader(_) => "http_get_with_header",
             RuntimeValidator::ConcurrentRequests(_) => "concurrent_requests",
             RuntimeValidator::HttpPostFile(_) => "http_post_file",
+            RuntimeValidator::HttpGetFile(_) => "http_get_file",
             RuntimeValidator::CanCompile(_) => "can_compile",
             RuntimeValidator::NotImplemented(name) => name,
         }
@@ -76,8 +79,9 @@ fn create_from_parsed(parsed: &ParsedValidator) -> Result<RuntimeValidator, Stri
         "concurrent_requests" => create_concurrent_requests(parsed),
         "http_post_file" => create_http_post_file(parsed),
         "can_compile" => create_can_compile(parsed),
+        "http_get_file" => create_http_get_file(parsed),
         // validators we know about but haven't implemented yet
-        "http_get_file" | "file_contents_match" | "http_get_compressed" => {
+        "file_contents_match" | "http_get_compressed" => {
             Ok(RuntimeValidator::NotImplemented(parsed.name.clone()))
         }
         _ => Ok(RuntimeValidator::NotImplemented(parsed.name.clone())),
@@ -189,6 +193,16 @@ fn create_can_compile(parsed: &ParsedValidator) -> Result<RuntimeValidator, Stri
     )))
 }
 
+// http_get_file:string(/files/test.txt),int(200)
+fn create_http_get_file(parsed: &ParsedValidator) -> Result<RuntimeValidator, String> {
+    let path = parsed.param_as_string(0)?;
+    let expected_status = parsed.param_as_int(1)? as u16;
+    Ok(RuntimeValidator::HttpGetFile(HttpGetFileValidator::new(
+        path,
+        expected_status,
+    )))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -257,7 +271,7 @@ mod tests {
 
     #[test]
     fn test_not_implemented_validators() {
-        let names = ["http_get_file:string(/files/test.txt),int(200)"];
+        let names = ["file_contents_match:string(/tmp/test.txt),string(expected)"];
 
         for name in names {
             let validator = create_validator(name).unwrap();
@@ -269,5 +283,11 @@ mod tests {
     fn test_create_can_compile() {
         let validator = create_validator("can_compile:bool(true)").unwrap();
         assert_eq!(validator.name(), "can_compile");
+    }
+
+    #[test]
+    fn test_create_http_get_file() {
+        let validator = create_validator("http_get_file:string(/files/test.txt),int(200)").unwrap();
+        assert_eq!(validator.name(), "http_get_file");
     }
 }
