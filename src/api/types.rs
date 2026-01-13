@@ -103,6 +103,41 @@ pub struct Hint {
     pub points_deduction: i32,
 }
 
+/// hint data from the hints API (includes unlock status)
+#[derive(Debug, Deserialize)]
+pub struct TaskHint {
+    pub id: i32,
+    pub uuid: String,
+    pub text: Option<String>, // only present if unlocked
+    pub points_deduction: i32,
+    pub sort_order: i32,
+    pub is_unlocked: bool,
+    pub is_available: bool,
+}
+
+/// response wrapper for hints list
+#[derive(Debug, Deserialize)]
+pub struct HintsResponse {
+    pub data: Vec<TaskHint>,
+}
+
+/// response from unlocking a hint
+#[derive(Debug, Deserialize)]
+pub struct UnlockHintResponse {
+    pub data: UnlockedHintData,
+    pub unlocked_at: String,
+    pub points_deducted: i32,
+    pub message: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UnlockedHintData {
+    pub id: i32,
+    pub uuid: String,
+    pub text: String,
+    pub points_deduction: i32,
+}
+
 /// outcome values for task attempts
 #[derive(Debug, Clone, Copy, Serialize)]
 #[serde(rename_all = "lowercase")]

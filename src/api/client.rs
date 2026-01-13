@@ -7,7 +7,7 @@ use std::{collections::HashMap, env};
 
 use crate::{config::Config, VERSION};
 
-use super::types::{ApiError, ApiUser, PaginatedResponse, Project, SubmitAttemptRequest, SubmitAttemptResponse};
+use super::types::{ApiError, ApiUser, HintsResponse, PaginatedResponse, Project, SubmitAttemptRequest, SubmitAttemptResponse, UnlockHintResponse};
 
 pub struct LighthouseAPIClient {
     pub base_url: String,
@@ -166,6 +166,19 @@ impl LighthouseAPIClient {
     pub async fn submit_attempt(&self, request: &SubmitAttemptRequest) -> Result<SubmitAttemptResponse> {
         let headers = self.auth_headers()?;
         self.post::<SubmitAttemptResponse, _>("projects/attempts", request, Some(headers)).await
+    }
+
+    pub async fn hints(&self, task_slug: &str) -> Result<HintsResponse> {
+        let headers = self.auth_headers()?;
+        let endpoint = format!("tasks/{}/hints", task_slug);
+        self.get::<HintsResponse>(&endpoint, None, Some(headers)).await
+    }
+
+    pub async fn unlock_hint(&self, task_slug: &str, hint_uuid: &str) -> Result<UnlockHintResponse> {
+        let headers = self.auth_headers()?;
+        let endpoint = format!("tasks/{}/hints/{}/unlock", task_slug, hint_uuid);
+        // post with empty body
+        self.post::<UnlockHintResponse, _>(&endpoint, &serde_json::json!({}), Some(headers)).await
     }
 }
 

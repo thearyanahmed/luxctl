@@ -66,6 +66,18 @@ enum Commands {
         #[arg(short = 'a', long)]
         all: bool,
     },
+
+    /// List hints for a task
+    Hints {
+        #[arg(short = 't', long)]
+        task: String,
+    },
+
+    /// Manage hints (unlock)
+    Hint {
+        #[command(subcommand)]
+        action: HintAction,
+    },
 }
 
 #[derive(Subcommand)]
@@ -79,6 +91,18 @@ enum ProjectAction {
     Status,
     /// Stop working on active project
     Stop,
+}
+
+#[derive(Subcommand)]
+enum HintAction {
+    /// Unlock a hint (deducts points)
+    Unlock {
+        #[arg(short = 't', long)]
+        task: String,
+
+        #[arg(short = 'i', long)]
+        hint: String,
+    },
 }
 
 impl Commands {
@@ -163,6 +187,16 @@ async fn main() -> Result<()> {
         Commands::Validate { detailed, all } => {
             commands::validate::validate_all(all, detailed).await?;
         }
+
+        Commands::Hints { task } => {
+            commands::hints::list(&task).await?;
+        }
+
+        Commands::Hint { action } => match action {
+            HintAction::Unlock { task, hint } => {
+                commands::hints::unlock(&task, &hint).await?;
+            }
+        },
     }
 
     Ok(())
