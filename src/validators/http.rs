@@ -445,11 +445,19 @@ impl ConcurrentRequestsValidator {
                 self.num_connections
             ))
         } else {
-            Err(format!(
-                "{}/{} requests succeeded. errors: {}",
-                successes,
-                self.num_connections,
+            // limit error output to first 3 errors
+            let error_summary = if errors.len() <= 3 {
                 errors.join("; ")
+            } else {
+                format!(
+                    "{}; ... and {} more errors",
+                    errors[..3].join("; "),
+                    errors.len() - 3
+                )
+            };
+            Err(format!(
+                "{}/{} requests succeeded. {}",
+                successes, self.num_connections, error_summary
             ))
         };
 

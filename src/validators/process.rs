@@ -1,9 +1,22 @@
+use crate::config::Config;
+use crate::state::ProjectState;
 use crate::tasks::TestCase;
+use std::path::PathBuf;
 use std::process::Stdio;
 use tokio::process::Command;
 use tokio::time::{timeout, Duration};
 
 const DEFAULT_TIMEOUT_MS: u64 = 5000;
+
+/// get workspace from active project state
+fn get_workspace() -> Option<PathBuf> {
+    let config = Config::load().ok()?;
+    if !config.has_auth_token() {
+        return None;
+    }
+    let state = ProjectState::load(config.expose_token()).ok()?;
+    state.get_active().map(|p| PathBuf::from(&p.workspace))
+}
 
 /// Validator: test graceful shutdown behavior
 /// starts a process, sends SIGTERM, verifies it exits cleanly
@@ -39,8 +52,13 @@ impl GracefulShutdownValidator {
         use nix::sys::signal::{kill, Signal};
         use nix::unistd::Pid;
 
-        // spawn the process
+        // get workspace path from project state
+        let workspace = get_workspace()
+            .unwrap_or_else(|| std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")));
+
+        // spawn the process from the workspace directory
         let mut child = Command::new(&self.binary_path)
+            .current_dir(&workspace)
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()
@@ -174,11 +192,21 @@ impl ConcurrentAccessValidator {
                         successes, total
                     ))
                 } else {
+                    // limit error output to first 3 failures
+                    let error_summary = if failures.len() <= 3 {
+                        failures.join("; ")
+                    } else {
+                        format!(
+                            "{}; ... and {} more failures",
+                            failures[..3].join("; "),
+                            failures.len() - 3
+                        )
+                    };
                     Err(format!(
                         "{}/{} operations failed: {}",
                         failures.len(),
                         total,
-                        failures.join("; ")
+                        error_summary
                     ))
                 }
             }
