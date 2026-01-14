@@ -1,4 +1,4 @@
-.PHONY: build run test fmt lint clean dev check all local\:me local\:get
+.PHONY: build run test fmt lint clean dev check all local\:me local\:get release\:build
 
 # ==============================================================================
 # Local API Testing
@@ -76,3 +76,10 @@ check: fmt-check lint test
 
 # Build and run all quality checks
 all: fmt lint test build
+
+# Build a release: make release:build VERSION=0.2.0
+release\:build:
+ifndef VERSION
+	$(error VERSION is required. Usage: make release:build VERSION=0.2.0)
+endif
+	./scripts/release.sh $(VERSION)

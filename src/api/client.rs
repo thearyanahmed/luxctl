@@ -241,7 +241,7 @@ impl LighthouseAPIClientBaseURL {
     pub fn default_for_env(environment: Env) -> Self {
         let url = match environment {
             Env::DEV => "http://localhost:8000",
-            Env::RELEASE => "https://api.projectlighthouse.io",
+            Env::RELEASE => "https://projectlighthouse.io",
         };
         LighthouseAPIClientBaseURL(url.to_string())
     }
@@ -362,7 +362,7 @@ mod tests {
             LighthouseAPIClientBaseURL::from("https://projectlighthouse.io", Env::DEV).is_err()
         );
         assert!(
-            LighthouseAPIClientBaseURL::from("https://api.projectlighthouse.io", Env::DEV).is_err()
+            LighthouseAPIClientBaseURL::from("https://projectlighthouse.io", Env::DEV).is_err()
         );
 
         // Invalid URLs in DEV
@@ -382,11 +382,11 @@ mod tests {
                 .is_ok()
         );
         assert!(
-            LighthouseAPIClientBaseURL::from("https://api.projectlighthouse.io", Env::RELEASE)
+            LighthouseAPIClientBaseURL::from("https://projectlighthouse.io", Env::RELEASE)
                 .is_ok()
         );
         assert!(LighthouseAPIClientBaseURL::from(
-            "https://api.projectlighthouse.io/v1",
+            "https://projectlighthouse.io/v1",
             Env::RELEASE
         )
         .is_ok());
@@ -452,7 +452,7 @@ mod tests {
     #[test]
     fn test_lighthouse_api_base_url_default_for_env_release() {
         let url = LighthouseAPIClientBaseURL::default_for_env(Env::RELEASE);
-        assert_eq!(url.0, "https://api.projectlighthouse.io");
+        assert_eq!(url.0, "https://projectlighthouse.io");
     }
 
     #[test]
@@ -467,11 +467,11 @@ mod tests {
     #[test]
     fn test_lighthouse_api_new_release() {
         let base_url =
-            LighthouseAPIClientBaseURL::from("https://api.projectlighthouse.io", Env::RELEASE)
+            LighthouseAPIClientBaseURL::from("https://projectlighthouse.io", Env::RELEASE)
                 .unwrap();
         let api = LighthouseAPIClient::new(base_url, "v1", Env::RELEASE, None);
 
-        assert_eq!(api.base_url, "https://api.projectlighthouse.io");
+        assert_eq!(api.base_url, "https://projectlighthouse.io");
         assert_eq!(api.api_version, "v1");
     }
 
@@ -491,7 +491,7 @@ mod tests {
             &[("LUX_ENV", Some("RELEASE")), ("LUX_API_BASE_URL", None)],
             || {
                 let api = LighthouseAPIClient::default();
-                assert_eq!(api.base_url, "https://api.projectlighthouse.io");
+                assert_eq!(api.base_url, "https://projectlighthouse.io");
                 assert_eq!(api.api_version, "v1");
             },
         );
@@ -503,7 +503,7 @@ mod tests {
             &[("LUX_ENV", Some("release")), ("LUX_API_BASE_URL", None)],
             || {
                 let api = LighthouseAPIClient::default();
-                assert_eq!(api.base_url, "https://api.projectlighthouse.io");
+                assert_eq!(api.base_url, "https://projectlighthouse.io");
             },
         );
     }
@@ -621,12 +621,12 @@ mod tests {
     #[test]
     fn test_lighthouse_api_display_release_env() {
         let base_url =
-            LighthouseAPIClientBaseURL::from("https://api.projectlighthouse.io", Env::RELEASE)
+            LighthouseAPIClientBaseURL::from("https://projectlighthouse.io", Env::RELEASE)
                 .unwrap();
         let api = LighthouseAPIClient::new(base_url, "v1", Env::RELEASE, None);
         let display = format!("{}", api);
 
-        assert!(display.contains("https://api.projectlighthouse.io"));
+        assert!(display.contains("https://projectlighthouse.io"));
         assert!(display.contains("release"));
     }
 }
