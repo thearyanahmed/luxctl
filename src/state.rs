@@ -22,6 +22,8 @@ pub struct CachedTask {
     pub slug: String,
     pub title: String,
     pub points: i32,
+    #[serde(default)]
+    pub points_earned: i32,
     pub status: String,
     pub sort_order: i32,
     pub validators: Vec<String>,
@@ -44,6 +46,7 @@ impl CachedTask {
             slug: task.slug.clone(),
             title: task.title.clone(),
             points,
+            points_earned: task.points_earned,
             status: task.status.clone(),
             sort_order: task.sort_order,
             validators: task.validators.clone(),
@@ -58,11 +61,23 @@ pub struct ActiveProject {
     pub name: String,
     pub fetched_at: DateTime<Utc>,
     pub tasks: Vec<CachedTask>,
+    #[serde(default = "default_workspace")]
+    pub workspace: String,
+    #[serde(default)]
+    pub runtime: Option<String>,
+}
+
+fn default_workspace() -> String {
+    ".".to_string()
 }
 
 impl ActiveProject {
     pub fn total_points(&self) -> i32 {
         self.tasks.iter().map(|t| t.points).sum()
+    }
+
+    pub fn earned_points(&self) -> i32 {
+        self.tasks.iter().map(|t| t.points_earned).sum()
     }
 
     pub fn completed_count(&self) -> usize {
@@ -148,7 +163,14 @@ impl ProjectState {
     }
 
     /// set active project from API data
-    pub fn set_active(&mut self, slug: &str, name: &str, tasks: &[Task]) {
+    pub fn set_active(
+        &mut self,
+        slug: &str,
+        name: &str,
+        tasks: &[Task],
+        workspace: &str,
+        runtime: Option<&str>,
+    ) {
         let cached_tasks: Vec<CachedTask> = tasks.iter().map(CachedTask::from_api_task).collect();
 
         self.active_project = Some(ActiveProject {
@@ -156,7 +178,16 @@ impl ProjectState {
             name: name.to_string(),
             fetched_at: Utc::now(),
             tasks: cached_tasks,
+            workspace: workspace.to_string(),
+            runtime: runtime.map(|s| s.to_string()),
         });
+    }
+
+    /// update runtime for active project
+    pub fn set_runtime(&mut self, runtime: &str) {
+        if let Some(ref mut project) = self.active_project {
+            project.runtime = Some(runtime.to_string());
+        }
     }
 
     /// clear active project
@@ -239,6 +270,7 @@ mod tests {
             scores: "5:10:50|10:20:35".to_string(),
             status: "challenge_awaits".to_string(),
             abandoned_deduction: 5,
+            points_earned: 35,
             hints: vec![],
             validators: vec!["tcp_listening:int(8080)".to_string()],
         };
@@ -248,6 +280,7 @@ mod tests {
         assert_eq!(cached.id, 1);
         assert_eq!(cached.slug, "test-task");
         assert_eq!(cached.points, 50); // max points from first tier
+        assert_eq!(cached.points_earned, 35);
         assert_eq!(cached.validators.len(), 1);
     }
 
@@ -260,6 +293,8 @@ mod tests {
                 .expect("valid date")
                 .with_timezone(&Utc),
             tasks: vec![],
+            workspace: ".".to_string(),
+            runtime: None,
         });
 
         let checksum1 = ProjectState::compute_checksum(&project, test_token());
@@ -275,6 +310,8 @@ mod tests {
             name: "Test Project".to_string(),
             fetched_at: Utc::now(),
             tasks: vec![],
+            workspace: ".".to_string(),
+            runtime: None,
         });
 
         let project2 = Some(ActiveProject {
@@ -282,6 +319,8 @@ mod tests {
             name: "Test Project".to_string(),
             fetched_at: Utc::now(),
             tasks: vec![],
+            workspace: ".".to_string(),
+            runtime: None,
         });
 
         let checksum1 = ProjectState::compute_checksum(&project1, test_token());
@@ -297,6 +336,8 @@ mod tests {
             name: "Test Project".to_string(),
             fetched_at: Utc::now(),
             tasks: vec![],
+            workspace: ".".to_string(),
+            runtime: None,
         });
 
         let checksum1 = ProjectState::compute_checksum(&project, "token1");
@@ -317,6 +358,7 @@ mod tests {
                     slug: "t1".to_string(),
                     title: "Task 1".to_string(),
                     points: 25,
+                    points_earned: 20,
                     status: "challenge_completed".to_string(),
                     sort_order: 1,
                     validators: vec![],
@@ -326,14 +368,18 @@ mod tests {
                     slug: "t2".to_string(),
                     title: "Task 2".to_string(),
                     points: 50,
+                    points_earned: 0,
                     status: "challenge_awaits".to_string(),
                     sort_order: 2,
                     validators: vec![],
                 },
             ],
+            workspace: ".".to_string(),
+            runtime: Some("go".to_string()),
         };
 
         assert_eq!(project.total_points(), 75);
+        assert_eq!(project.earned_points(), 20);
         assert_eq!(project.completed_count(), 1);
     }
 }

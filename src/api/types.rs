@@ -36,6 +36,15 @@ pub struct ApiUser {
     pub id: i32,
     pub name: String,
     pub email: String,
+    #[serde(default)]
+    pub stats: Option<UserStats>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UserStats {
+    pub projects_attempted: i32,
+    pub tasks_completed: i32,
+    pub total_xp: i32,
 }
 
 #[derive(Debug, Deserialize)]
@@ -86,6 +95,7 @@ pub struct Task {
     pub scores: String,
     pub status: String,
     pub abandoned_deduction: i32,
+    pub points_earned: i32,
     pub hints: Vec<Hint>,
     pub validators: Vec<String>,
 }
@@ -283,6 +293,7 @@ mod tests {
                     "scores": "5:10:50|10:20:35|20:30:20",
                     "status": "challenge_awaits",
                     "abandoned_deduction": 5,
+                    "points_earned": 0,
                     "hints": [
                         {
                             "id": 15,
