@@ -7,8 +7,6 @@ use crate::tasks::{TestCase, TestResults};
 
 pub struct Message;
 
-// All prefixes padded inside brackets to match "[ERROR]" (5 chars inside)
-
 impl Message {
     pub fn greet(name: &str) {
         let msg = format!(
@@ -16,23 +14,23 @@ impl Message {
             name.bold(),
             "projectlighthouse".yellow()
         );
-        println!("{} {}", "[LUX  ]".blue(), msg);
+        println!("{}", msg);
     }
 
     pub fn say(msg: &str) {
-        println!("{} {}", "[LUX  ]".blue(), msg);
+        println!("{}", msg);
     }
 
     pub fn cheer(msg: &str) {
-        println!("{} {}", "[OK   ]".green(), msg);
+        println!("{}", msg.green());
     }
 
     pub fn complain(msg: &str) {
-        eprintln!("{} {}", "[WARN ]".yellow(), msg);
+        eprintln!("{}", msg.yellow());
     }
 
     pub fn oops(msg: &str) {
-        eprintln!("{} {}", "[ERROR]".red(), msg);
+        eprintln!("{}", msg.red());
     }
 
     pub fn print_projects(response: &PaginatedResponse<Project>) {
@@ -47,7 +45,7 @@ impl Message {
     }
 
     fn print_project(project: &Project) {
-        println!("  {} {}", "[#]".dimmed(), project.name.bold());
+        println!("  {} {}", "#".dimmed(), project.name.bold());
         if let Some(desc) = &project.short_description {
             println!("    {}", desc);
         }
@@ -63,7 +61,7 @@ impl Message {
     }
 
     pub fn print_project_detail(project: &Project) {
-        println!("  {} {}", "[#]".dimmed(), project.name.bold());
+        println!("  {} {}", "#".dimmed(), project.name.bold());
 
         if let Some(desc) = &project.short_description {
             println!("    {}", desc);
@@ -81,11 +79,9 @@ impl Message {
             for (index, task) in tasks.iter().enumerate() {
                 let is_last = index == task_count - 1;
 
-                // Timeline connector
                 let connector = if is_last { "└" } else { "├" };
                 let line_char = if is_last { " " } else { "│" };
 
-                // Show status marker only for completed tasks
                 let is_completed = task.status == "completed" || task.status == "success";
                 let status_marker = if is_completed {
                     " ✓".green().to_string()
@@ -101,13 +97,11 @@ impl Message {
                     status_marker
                 );
 
-                // Add empty line between tasks (except after last)
                 if !is_last {
                     println!("    {}", line_char.dimmed());
                 }
             }
 
-            // Show first task details at the end
             if let Some(first_task) = tasks.first() {
                 println!();
                 println!("  {} {}", "next up:".dimmed(), first_task.title.bold());
@@ -123,7 +117,7 @@ impl Message {
     }
 
     pub fn print_task_header(task: &Task, detailed: bool) {
-        println!("{} {}", "[TASK ]".blue(), task.title.bold());
+        println!("{}", task.title.bold());
 
         if detailed {
             let skin = MadSkin::default();
@@ -134,114 +128,122 @@ impl Message {
         }
     }
 
-    pub fn print_validators_start(count: usize) {
-        println!(
-            "{} running {} validator{}...",
-            "[RUN  ]".blue(),
-            count,
-            if count == 1 { "" } else { "s" }
-        );
+    pub fn print_task_detail(task: &Task, detailed: bool) {
+        println!("{}", task.title.bold());
+
+        if detailed {
+            println!();
+            let skin = MadSkin::default();
+            let rendered = format!("{}", skin.text(&task.description, None));
+            for line in rendered.lines() {
+                println!("  {}", line);
+            }
+        }
+    }
+
+    pub fn print_validators_start(_count: usize) {
+        println!("validating...");
     }
 
     pub fn print_test_case(test: &TestCase, index: usize) {
-        let status_str = if test.passed() {
-            "[PASS ]".green()
+        if test.passed() {
+            println!(
+                "{} #{} {}",
+                "✓".green(),
+                index + 1,
+                test.name
+            );
         } else {
-            "[FAIL ]".red()
-        };
+            println!(
+                "{} #{} {}",
+                "✗".red(),
+                index + 1,
+                test.name.red()
+            );
 
-        println!(
-            "{} {} {}",
-            status_str,
-            format!("#{}", index + 1).dimmed(),
-            test.name
-        );
-
-        // show message on failure
-        if !test.passed() {
-            // 7 chars bracket + 1 space = 8 chars indent
-            println!("{:8}{}", "", test.message().red());
+            if test.message() != test.name {
+                // truncate long error messages for display
+                let msg = test.message();
+                let display_msg = if msg.len() > 600 {
+                    format!("{}...", &msg[..600])
+                } else {
+                    msg.to_string()
+                };
+                println!("  {}", display_msg.red());
+            }
         }
     }
 
     pub fn print_test_results(results: &TestResults) {
         if results.all_passed() {
             println!(
-                "{} all {} tests passed!",
-                "[OK   ]".green(),
-                results.total()
+                "{}",
+                format!("all {} tests passed!", results.total()).green()
             );
         } else {
             println!(
-                "{} {}/{} tests passed",
-                "[FAIL ]".red(),
-                results.passed(),
-                results.total()
+                "{}",
+                format!("{}/{} tests passed", results.passed(), results.total()).red()
             );
         }
     }
 
     pub fn print_connection_error(port: u16) {
         Self::oops(&format!("could not connect to server on port {}", port));
-        println!();
-        println!("    make sure your server is running:");
-        println!("    {}", "  ./your-server".dimmed());
-        println!();
+        println!("  make sure your server is running:");
+        println!("  {}", "./your-server".dimmed());
     }
 
-    /// print task list for active project
     pub fn print_task_list(project: &ActiveProject) {
-        Self::say(&format!("tasks for: {}\n", project.name.bold()));
+        println!("tasks for: {}\n", project.name.bold());
 
-        // table header
         println!(
             "  {}  {}  {}  {}",
             "#".dimmed(),
+            format!("{:>6}", "Points").dimmed(),
             "Status".dimmed(),
-            format!("{:30}", "Task").dimmed(),
-            "Points".dimmed()
+            "Task".dimmed()
         );
-
-        // compute earned points
-        let mut earned = 0;
 
         for (i, task) in project.tasks.iter().enumerate() {
             let (status, status_color) = match task.status.as_str() {
-                "challenge_completed" => {
-                    earned += task.points;
-                    ("[DONE]".to_string(), "green")
-                }
-                "challenge_failed" => ("[FAIL]".to_string(), "red"),
-                "challenged" => ("[....]".to_string(), "yellow"),
-                _ => ("[    ]".to_string(), "white"),
+                "challenge_completed" => ("✓".to_string(), "green"),
+                "challenge_failed" => ("✗".to_string(), "red"),
+                "challenged" => ("…".to_string(), "yellow"),
+                _ => (" ".to_string(), "white"),
             };
 
             let status_display = match status_color {
-                "green" => status.green().to_string(),
-                "red" => status.red().to_string(),
-                "yellow" => status.yellow().to_string(),
-                _ => status.dimmed().to_string(),
+                "green" => format!("  {}   ", status).green().to_string(),
+                "red" => format!("  {}   ", status).red().to_string(),
+                "yellow" => format!("  {}   ", status).yellow().to_string(),
+                _ => format!("  {}   ", status).dimmed().to_string(),
             };
 
             let index = format!("{:02}", i + 1);
-            let title_padded = format!("{:30}", task.title);
+            let points = format!("{:>6}", task.points);
             println!(
-                "  {}  {}  {}  {} XP",
+                "  {}  {}  {}  {}",
                 index.dimmed(),
+                points.bold(),
                 status_display,
-                title_padded,
-                task.points
+                task.title
             );
         }
 
         println!();
         println!(
-            "       progress: {}/{} completed | {}/{} XP earned",
-            project.completed_count(),
+            "  progress: {}/{} completed | {} XP earned",
+            project.completed_count().to_string().bold(),
             project.tasks.len(),
-            earned,
-            project.total_points()
+            format!("{}/{}", project.earned_points(), project.total_points()).bold()
         );
+    }
+
+    pub fn print_points_earned(points: i32) {
+        if points > 0 {
+            println!("{}", format!("+{} XP", points).bold().green());
+        }
     }
 }
 
