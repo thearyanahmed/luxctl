@@ -212,6 +212,7 @@ mod tests {
             id: 42,
             name: "Test User".to_string(),
             email: "test@example.com".to_string(),
+            stats: None,
         };
 
         assert_eq!(user.id(), 42);
