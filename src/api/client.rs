@@ -382,14 +382,12 @@ mod tests {
                 .is_ok()
         );
         assert!(
-            LighthouseAPIClientBaseURL::from("https://projectlighthouse.io", Env::RELEASE)
+            LighthouseAPIClientBaseURL::from("https://projectlighthouse.io", Env::RELEASE).is_ok()
+        );
+        assert!(
+            LighthouseAPIClientBaseURL::from("https://projectlighthouse.io/v1", Env::RELEASE)
                 .is_ok()
         );
-        assert!(LighthouseAPIClientBaseURL::from(
-            "https://projectlighthouse.io/v1",
-            Env::RELEASE
-        )
-        .is_ok());
 
         // localhost NOT allowed in RELEASE
         assert!(LighthouseAPIClientBaseURL::from("http://localhost", Env::RELEASE).is_err());
@@ -467,8 +465,7 @@ mod tests {
     #[test]
     fn test_lighthouse_api_new_release() {
         let base_url =
-            LighthouseAPIClientBaseURL::from("https://projectlighthouse.io", Env::RELEASE)
-                .unwrap();
+            LighthouseAPIClientBaseURL::from("https://projectlighthouse.io", Env::RELEASE).unwrap();
         let api = LighthouseAPIClient::new(base_url, "v1", Env::RELEASE, None);
 
         assert_eq!(api.base_url, "https://projectlighthouse.io");
@@ -621,8 +618,7 @@ mod tests {
     #[test]
     fn test_lighthouse_api_display_release_env() {
         let base_url =
-            LighthouseAPIClientBaseURL::from("https://projectlighthouse.io", Env::RELEASE)
-                .unwrap();
+            LighthouseAPIClientBaseURL::from("https://projectlighthouse.io", Env::RELEASE).unwrap();
         let api = LighthouseAPIClient::new(base_url, "v1", Env::RELEASE, None);
         let display = format!("{}", api);
 
