@@ -2,14 +2,8 @@ use clap::{Parser, Subcommand};
 use color_eyre::eyre::Result;
 
 use lux::{
-    api::LighthouseAPIClient,
-    auth::TokenAuthenticator,
-    commands,
-    config::Config,
-    greet,
-    message::Message,
-    oops,
-    VERSION,
+    api::LighthouseAPIClient, auth::TokenAuthenticator, commands, config::Config, greet,
+    message::Message, oops, VERSION,
 };
 
 #[derive(Parser)]

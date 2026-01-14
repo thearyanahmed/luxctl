@@ -88,7 +88,10 @@ impl ParsedValidator {
 fn parse_typed_param(input: &str) -> Result<ParamValue, String> {
     let input = input.trim();
 
-    if let Some(inner) = input.strip_prefix("bool(").and_then(|s| s.strip_suffix(')')) {
+    if let Some(inner) = input
+        .strip_prefix("bool(")
+        .and_then(|s| s.strip_suffix(')'))
+    {
         match inner.to_lowercase().as_str() {
             "true" => return Ok(ParamValue::Bool(true)),
             "false" => return Ok(ParamValue::Bool(false)),
@@ -103,7 +106,10 @@ fn parse_typed_param(input: &str) -> Result<ParamValue, String> {
         return Ok(ParamValue::Int(value));
     }
 
-    if let Some(inner) = input.strip_prefix("string(").and_then(|s| s.strip_suffix(')')) {
+    if let Some(inner) = input
+        .strip_prefix("string(")
+        .and_then(|s| s.strip_suffix(')'))
+    {
         return Ok(ParamValue::String(inner.to_string()));
     }
 
@@ -239,7 +245,8 @@ mod tests {
 
     #[test]
     fn test_parse_validator_three_params() {
-        let result = parse_validator("http_get:string(/echo/hello),int(200),string(hello)").unwrap();
+        let result =
+            parse_validator("http_get:string(/echo/hello),int(200),string(hello)").unwrap();
         assert_eq!(result.name, "http_get");
         assert_eq!(result.params.len(), 3);
         assert_eq!(

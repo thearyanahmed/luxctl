@@ -69,10 +69,16 @@ fn detect_build_command() -> Result<(String, Vec<String>), String> {
     if Path::new("package.json").exists() || cwd.join("package.json").exists() {
         // check for typescript
         if Path::new("tsconfig.json").exists() || cwd.join("tsconfig.json").exists() {
-            return Ok(("npx".to_string(), vec!["tsc".to_string(), "--noEmit".to_string()]));
+            return Ok((
+                "npx".to_string(),
+                vec!["tsc".to_string(), "--noEmit".to_string()],
+            ));
         }
         // plain js has no compile step, treat as success
-        return Ok(("echo".to_string(), vec!["no compile step for js".to_string()]));
+        return Ok((
+            "echo".to_string(),
+            vec!["no compile step for js".to_string()],
+        ));
     }
 
     // python (syntax check)
@@ -82,7 +88,11 @@ fn detect_build_command() -> Result<(String, Vec<String>), String> {
     {
         return Ok((
             "python".to_string(),
-            vec!["-m".to_string(), "py_compile".to_string(), "*.py".to_string()],
+            vec![
+                "-m".to_string(),
+                "py_compile".to_string(),
+                "*.py".to_string(),
+            ],
         ));
     }
 
@@ -91,7 +101,10 @@ fn detect_build_command() -> Result<(String, Vec<String>), String> {
         return Ok(("make".to_string(), vec!["-n".to_string()])); // dry run
     }
 
-    Err("unable to detect project type. expected Cargo.toml, go.mod, package.json, or Makefile".to_string())
+    Err(
+        "unable to detect project type. expected Cargo.toml, go.mod, package.json, or Makefile"
+            .to_string(),
+    )
 }
 
 #[cfg(test)]
