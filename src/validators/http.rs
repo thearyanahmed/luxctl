@@ -1,4 +1,5 @@
 use crate::tasks::TestCase;
+use serde_json::Value as JsonValue;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 use tokio::time::{timeout, Duration};
@@ -139,7 +140,10 @@ impl HttpStatusValidator {
         let response = http_request(self.port, "GET", "/", &[], None).await?;
 
         let result = if response.status_code == self.expected_status {
-            Ok(format!("server returned {} as expected", self.expected_status))
+            Ok(format!(
+                "server returned {} as expected",
+                self.expected_status
+            ))
         } else {
             Err(format!(
                 "expected status {}, got {}",
@@ -241,10 +245,16 @@ impl HttpHeaderPresentValidator {
             if self.should_exist {
                 Ok(format!("header '{}' is present", self.header_name))
             } else {
-                Ok(format!("header '{}' is absent as expected", self.header_name))
+                Ok(format!(
+                    "header '{}' is absent as expected",
+                    self.header_name
+                ))
             }
         } else if self.should_exist {
-            Err(format!("header '{}' not found in response", self.header_name))
+            Err(format!(
+                "header '{}' not found in response",
+                self.header_name
+            ))
         } else {
             Err(format!(
                 "header '{}' should not be present",
@@ -289,12 +299,10 @@ impl HttpHeaderValueValidator {
         let response = http_request(self.port, "GET", &self.path, &[], None).await?;
 
         let result = match response.get_header(&self.header_name) {
-            Some(value) if value == self.expected_value => {
-                Ok(format!(
-                    "header '{}' has value '{}'",
-                    self.header_name, self.expected_value
-                ))
-            }
+            Some(value) if value == self.expected_value => Ok(format!(
+                "header '{}' has value '{}'",
+                self.header_name, self.expected_value
+            )),
             Some(value) => Err(format!(
                 "header '{}' expected '{}', got '{}'",
                 self.header_name, self.expected_value, value
@@ -573,6 +581,290 @@ impl HttpGetCompressedValidator {
 
         Ok(TestCase {
             name: format!("GET {} with compression {}", self.path, self.encoding),
+            result,
+        })
+    }
+}
+
+/// Validator: check if JSON response contains required fields
+pub struct HttpJsonExistsValidator {
+    pub port: u16,
+    pub path: String,
+    pub method: String,
+    pub fields: Vec<String>,
+}
+
+impl HttpJsonExistsValidator {
+    pub fn new(path: &str, method: &str, fields: Vec<String>) -> Self {
+        Self {
+            port: DEFAULT_PORT,
+            path: path.to_string(),
+            method: method.to_string(),
+            fields,
+        }
+    }
+
+    pub async fn validate(&self) -> Result<TestCase, String> {
+        let response = http_request(self.port, &self.method, &self.path, &[], None).await?;
+
+        let json: JsonValue = serde_json::from_str(&response.body)
+            .map_err(|e| format!("invalid JSON response: {}", e))?;
+
+        let mut missing_fields = Vec::new();
+        for field in &self.fields {
+            if json.get(field).is_none() {
+                missing_fields.push(field.clone());
+            }
+        }
+
+        let result = if missing_fields.is_empty() {
+            Ok(format!(
+                "JSON response contains all required fields: {:?}",
+                self.fields
+            ))
+        } else {
+            Err(format!("missing required fields: {:?}", missing_fields))
+        };
+
+        Ok(TestCase {
+            name: format!(
+                "{} {} returns JSON with {:?}",
+                self.method, self.path, self.fields
+            ),
+            result,
+        })
+    }
+}
+
+/// Validator: check specific JSON field has expected value
+pub struct HttpJsonFieldValidator {
+    pub port: u16,
+    pub path: String,
+    pub method: String,
+    pub field: String,
+    pub expected_value: String,
+}
+
+impl HttpJsonFieldValidator {
+    pub fn new(path: &str, method: &str, field: &str, expected_value: &str) -> Self {
+        Self {
+            port: DEFAULT_PORT,
+            path: path.to_string(),
+            method: method.to_string(),
+            field: field.to_string(),
+            expected_value: expected_value.to_string(),
+        }
+    }
+
+    pub async fn validate(&self) -> Result<TestCase, String> {
+        let response = http_request(self.port, &self.method, &self.path, &[], None).await?;
+
+        let json: JsonValue = serde_json::from_str(&response.body)
+            .map_err(|e| format!("invalid JSON response: {}", e))?;
+
+        let actual_value = json.get(&self.field);
+
+        let result = match actual_value {
+            Some(value) => {
+                let value_str = match value {
+                    JsonValue::String(s) => s.clone(),
+                    JsonValue::Number(n) => n.to_string(),
+                    JsonValue::Bool(b) => b.to_string(),
+                    _ => value.to_string(),
+                };
+
+                if value_str == self.expected_value {
+                    Ok(format!(
+                        "field '{}' has expected value '{}'",
+                        self.field, self.expected_value
+                    ))
+                } else {
+                    Err(format!(
+                        "field '{}' expected '{}', got '{}'",
+                        self.field, self.expected_value, value_str
+                    ))
+                }
+            }
+            None => Err(format!("field '{}' not found in JSON response", self.field)),
+        };
+
+        Ok(TestCase {
+            name: format!(
+                "{} {} field '{}' = '{}'",
+                self.method, self.path, self.field, self.expected_value
+            ),
+            result,
+        })
+    }
+}
+
+/// Validator: POST JSON body and check response status and optional body
+pub struct HttpPostJsonValidator {
+    pub port: u16,
+    pub path: String,
+    pub body: String,
+    pub expected_status: u16,
+    pub expected_field: Option<(String, String)>,
+}
+
+impl HttpPostJsonValidator {
+    pub fn new(path: &str, body: &str, expected_status: u16) -> Self {
+        Self {
+            port: DEFAULT_PORT,
+            path: path.to_string(),
+            body: body.to_string(),
+            expected_status,
+            expected_field: None,
+        }
+    }
+
+    pub fn with_expected_field(mut self, field: &str, value: &str) -> Self {
+        self.expected_field = Some((field.to_string(), value.to_string()));
+        self
+    }
+
+    pub async fn validate(&self) -> Result<TestCase, String> {
+        let headers = [("Content-Type", "application/json")];
+        let response =
+            http_request(self.port, "POST", &self.path, &headers, Some(&self.body)).await?;
+
+        let mut errors = Vec::new();
+
+        if response.status_code != self.expected_status {
+            errors.push(format!(
+                "expected status {}, got {}",
+                self.expected_status, response.status_code
+            ));
+        }
+
+        if let Some((ref field, ref expected_value)) = self.expected_field {
+            match serde_json::from_str::<JsonValue>(&response.body) {
+                Ok(json) => match json.get(field) {
+                    Some(value) => {
+                        let value_str = match value {
+                            JsonValue::String(s) => s.clone(),
+                            JsonValue::Number(n) => n.to_string(),
+                            JsonValue::Bool(b) => b.to_string(),
+                            _ => value.to_string(),
+                        };
+                        if value_str != *expected_value {
+                            errors.push(format!(
+                                "field '{}' expected '{}', got '{}'",
+                                field, expected_value, value_str
+                            ));
+                        }
+                    }
+                    None => errors.push(format!("field '{}' not found in response", field)),
+                },
+                Err(e) => errors.push(format!("invalid JSON response: {}", e)),
+            }
+        }
+
+        let result = if errors.is_empty() {
+            Ok(format!(
+                "POST {} returned {} as expected",
+                self.path, self.expected_status
+            ))
+        } else {
+            Err(errors.join("; "))
+        };
+
+        Ok(TestCase {
+            name: format!("POST {} returns {}", self.path, self.expected_status),
+            result,
+        })
+    }
+}
+
+/// Validator: send rapid requests to test rate limiting
+/// expects some requests to be rejected with 429
+pub struct RateLimitValidator {
+    pub port: u16,
+    pub path: String,
+    pub method: String,
+    pub requests: u32,
+    pub window_ms: u64,
+    pub expected_rejected: u32,
+}
+
+impl RateLimitValidator {
+    pub fn new(
+        path: &str,
+        method: &str,
+        requests: u32,
+        window_ms: u64,
+        expected_rejected: u32,
+    ) -> Self {
+        Self {
+            port: DEFAULT_PORT,
+            path: path.to_string(),
+            method: method.to_string(),
+            requests,
+            window_ms,
+            expected_rejected,
+        }
+    }
+
+    pub async fn validate(&self) -> Result<TestCase, String> {
+        let mut handles = Vec::new();
+        let start = std::time::Instant::now();
+
+        // send all requests within the time window
+        for _ in 0..self.requests {
+            let port = self.port;
+            let path = self.path.clone();
+            let method = self.method.clone();
+
+            let handle =
+                tokio::spawn(async move { http_request(port, &method, &path, &[], None).await });
+            handles.push(handle);
+
+            // small delay to spread requests across the window
+            if self.window_ms > 0 {
+                let delay_per_request = self.window_ms / u64::from(self.requests);
+                tokio::time::sleep(Duration::from_millis(delay_per_request)).await;
+            }
+        }
+
+        let elapsed = start.elapsed();
+        let mut rejected_count = 0u32;
+        let mut success_count = 0u32;
+        let mut errors = Vec::new();
+
+        for handle in handles {
+            match handle.await {
+                Ok(Ok(response)) => {
+                    if response.status_code == 429 {
+                        rejected_count += 1;
+                    } else if response.status_code == 200 || response.status_code == 201 {
+                        success_count += 1;
+                    }
+                }
+                Ok(Err(e)) => errors.push(e),
+                Err(e) => errors.push(format!("task failed: {}", e)),
+            }
+        }
+
+        let result = if rejected_count >= self.expected_rejected {
+            Ok(format!(
+                "rate limiting working: {}/{} requests rejected (expected >= {}), {} succeeded, completed in {:?}",
+                rejected_count, self.requests, self.expected_rejected, success_count, elapsed
+            ))
+        } else {
+            Err(format!(
+                "expected at least {} rejected requests, got {}. {} succeeded, {} errors",
+                self.expected_rejected,
+                rejected_count,
+                success_count,
+                errors.len()
+            ))
+        };
+
+        Ok(TestCase {
+            name: format!(
+                "rate limit {} requests in {}ms",
+                self.requests, self.window_ms
+            ),
             result,
         })
     }
