@@ -1,0 +1,5 @@
+/* hide theme picker - light mode only */
+#theme-toggle,
+#theme-list {
+    display: none !important;
+}
