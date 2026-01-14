@@ -223,7 +223,7 @@ impl Message {
                 _ => status.dimmed().to_string(),
             };
 
-            let index = (i + 1).to_string();
+            let index = format!("{:02}", i + 1);
             let title_padded = format!("{:30}", task.title);
             println!(
                 "  {}  {}  {}  {} XP",

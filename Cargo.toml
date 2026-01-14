@@ -58,3 +58,11 @@ unused_self = "warn"
 [lints.rust]
 unsafe_code = "warn"
 dead_code = "warn"
+
+# optimized for smallest binary size at the cost of compile time
+[profile.release]
+opt-level = "z"     # optimize for size
+lto = true          # link-time optimization
+codegen-units = 1   # single codegen unit for better optimization
+panic = "abort"     # no unwinding, smaller binary
+strip = true        # strip symbols
