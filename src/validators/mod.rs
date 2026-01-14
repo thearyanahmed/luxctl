@@ -11,6 +11,7 @@ pub mod process;
 pub mod scenario;
 
 pub use compile::CanCompileValidator;
+pub use docker::{GoCompileValidator, RaceDetectorValidator};
 pub use endpoint::EndpointValidator;
 pub use factory::{create_validator, RuntimeValidator};
 pub use file::FileContentsMatchValidator;
@@ -25,9 +26,8 @@ pub use parser::{parse_validator, ParamValue, ParsedValidator};
 pub use port::PortValidator;
 pub use process::{ConcurrentAccessValidator, GracefulShutdownValidator};
 pub use scenario::{
-    HttpHealthCheck, HttpJsonFieldNested, HttpJsonFieldValue, HttpRequestWithBody,
-    HttpStatusCheck, JobPriorityVerified, JobProcessingVerified, JobResultVerified,
-    JobRetryVerified, JobSubmissionVerified, JobTimeoutReasonVerified, JobTimeoutVerified,
-    WorkerPoolConcurrent, WorkerScaleDown, WorkerScaleUp,
+    HttpHealthCheck, HttpJsonFieldNested, HttpJsonFieldValue, HttpRequestWithBody, HttpStatusCheck,
+    JobPriorityVerified, JobProcessingVerified, JobResultVerified, JobRetryVerified,
+    JobSubmissionVerified, JobTimeoutReasonVerified, JobTimeoutVerified, WorkerPoolConcurrent,
+    WorkerScaleDown, WorkerScaleUp,
 };
-pub use docker::{GoCompileValidator, RaceDetectorValidator};

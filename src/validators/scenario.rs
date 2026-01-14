@@ -1,5 +1,5 @@
-use crate::tasks::TestCase;
 use super::http::http_request;
+use crate::tasks::TestCase;
 use serde_json::Value as JsonValue;
 use tokio::time::{sleep, Duration};
 
@@ -92,10 +92,7 @@ impl JobSubmissionVerified {
         let get_json: JsonValue = serde_json::from_str(&get_response.body)
             .map_err(|e| format!("invalid JSON in GET response: {}", e))?;
 
-        let stored_id = get_json
-            .get("id")
-            .and_then(|v| v.as_str())
-            .unwrap_or("");
+        let stored_id = get_json.get("id").and_then(|v| v.as_str()).unwrap_or("");
 
         if stored_id != job_id {
             return Ok(TestCase {
@@ -109,10 +106,7 @@ impl JobSubmissionVerified {
 
         Ok(TestCase {
             name: "job submission verified".to_string(),
-            result: Ok(format!(
-                "job {} submitted and verified in storage",
-                job_id
-            )),
+            result: Ok(format!("job {} submitted and verified in storage", job_id)),
         })
     }
 }
@@ -185,8 +179,8 @@ impl JobProcessingVerified {
             });
         }
 
-        let get_json: JsonValue = serde_json::from_str(&get_response.body)
-            .map_err(|e| format!("invalid JSON: {}", e))?;
+        let get_json: JsonValue =
+            serde_json::from_str(&get_response.body).map_err(|e| format!("invalid JSON: {}", e))?;
 
         let status = get_json
             .get("status")
@@ -195,10 +189,7 @@ impl JobProcessingVerified {
 
         // step 4: verify status
         let result = if status == self.expected_status {
-            Ok(format!(
-                "job {} processed, status: {}",
-                job_id, status
-            ))
+            Ok(format!("job {} processed, status: {}", job_id, status))
         } else {
             Err(format!(
                 "expected status '{}', got '{}'",
@@ -323,7 +314,10 @@ impl WorkerPoolConcurrent {
         };
 
         Ok(TestCase {
-            name: format!("{} workers processing {} jobs", self.worker_count, self.job_count),
+            name: format!(
+                "{} workers processing {} jobs",
+                self.worker_count, self.job_count
+            ),
             result,
         })
     }
@@ -368,7 +362,10 @@ impl JobResultVerified {
 
         let json: JsonValue = serde_json::from_str(&post_response.body)
             .map_err(|e| format!("invalid JSON: {}", e))?;
-        let job_id = json.get("id").and_then(|v| v.as_str()).ok_or("missing id")?;
+        let job_id = json
+            .get("id")
+            .and_then(|v| v.as_str())
+            .ok_or("missing id")?;
 
         // step 2: wait for processing
         sleep(Duration::from_millis(200)).await;
@@ -377,8 +374,8 @@ impl JobResultVerified {
         let get_path = format!("/jobs/{}", job_id);
         let get_response = http_request(self.port, "GET", &get_path, &[], None).await?;
 
-        let get_json: JsonValue = serde_json::from_str(&get_response.body)
-            .map_err(|e| format!("invalid JSON: {}", e))?;
+        let get_json: JsonValue =
+            serde_json::from_str(&get_response.body).map_err(|e| format!("invalid JSON: {}", e))?;
 
         let result_value = get_json
             .get("result")
@@ -430,11 +427,15 @@ impl JobPriorityVerified {
             self.low_priority
         );
         let headers = [("Content-Type", "application/json")];
-        let low_response = http_request(self.port, "POST", "/jobs", &headers, Some(&low_body)).await?;
+        let low_response =
+            http_request(self.port, "POST", "/jobs", &headers, Some(&low_body)).await?;
 
-        let low_json: JsonValue = serde_json::from_str(&low_response.body)
-            .map_err(|e| format!("invalid JSON: {}", e))?;
-        let low_id = low_json.get("id").and_then(|v| v.as_str()).ok_or("missing id")?;
+        let low_json: JsonValue =
+            serde_json::from_str(&low_response.body).map_err(|e| format!("invalid JSON: {}", e))?;
+        let low_id = low_json
+            .get("id")
+            .and_then(|v| v.as_str())
+            .ok_or("missing id")?;
 
         // small delay to ensure order
         sleep(Duration::from_millis(10)).await;
@@ -444,11 +445,15 @@ impl JobPriorityVerified {
             r#"{{"type":"sleep","payload":"high","priority":{},"duration_ms":100}}"#,
             self.high_priority
         );
-        let high_response = http_request(self.port, "POST", "/jobs", &headers, Some(&high_body)).await?;
+        let high_response =
+            http_request(self.port, "POST", "/jobs", &headers, Some(&high_body)).await?;
 
         let high_json: JsonValue = serde_json::from_str(&high_response.body)
             .map_err(|e| format!("invalid JSON: {}", e))?;
-        let high_id = high_json.get("id").and_then(|v| v.as_str()).ok_or("missing id")?;
+        let high_id = high_json
+            .get("id")
+            .and_then(|v| v.as_str())
+            .ok_or("missing id")?;
 
         // step 3: wait for both to complete
         sleep(Duration::from_millis(500)).await;
@@ -460,10 +465,10 @@ impl JobPriorityVerified {
         let low_get = http_request(self.port, "GET", &low_path, &[], None).await?;
         let high_get = http_request(self.port, "GET", &high_path, &[], None).await?;
 
-        let low_data: JsonValue = serde_json::from_str(&low_get.body)
-            .map_err(|e| format!("invalid JSON: {}", e))?;
-        let high_data: JsonValue = serde_json::from_str(&high_get.body)
-            .map_err(|e| format!("invalid JSON: {}", e))?;
+        let low_data: JsonValue =
+            serde_json::from_str(&low_get.body).map_err(|e| format!("invalid JSON: {}", e))?;
+        let high_data: JsonValue =
+            serde_json::from_str(&high_get.body).map_err(|e| format!("invalid JSON: {}", e))?;
 
         // compare completed_at timestamps or check processing order
         let low_completed = low_data.get("completed_at").and_then(|v| v.as_str());
@@ -487,7 +492,10 @@ impl JobPriorityVerified {
         };
 
         Ok(TestCase {
-            name: format!("priority {} before {}", self.high_priority, self.low_priority),
+            name: format!(
+                "priority {} before {}",
+                self.high_priority, self.low_priority
+            ),
             result,
         })
     }
@@ -523,7 +531,10 @@ impl JobTimeoutVerified {
 
         let json: JsonValue = serde_json::from_str(&post_response.body)
             .map_err(|e| format!("invalid JSON: {}", e))?;
-        let job_id = json.get("id").and_then(|v| v.as_str()).ok_or("missing id")?;
+        let job_id = json
+            .get("id")
+            .and_then(|v| v.as_str())
+            .ok_or("missing id")?;
 
         // step 2: wait for timeout to occur (server timeout + buffer)
         sleep(Duration::from_millis(2000)).await;
@@ -532,10 +543,13 @@ impl JobTimeoutVerified {
         let get_path = format!("/jobs/{}", job_id);
         let get_response = http_request(self.port, "GET", &get_path, &[], None).await?;
 
-        let get_json: JsonValue = serde_json::from_str(&get_response.body)
-            .map_err(|e| format!("invalid JSON: {}", e))?;
+        let get_json: JsonValue =
+            serde_json::from_str(&get_response.body).map_err(|e| format!("invalid JSON: {}", e))?;
 
-        let status = get_json.get("status").and_then(|v| v.as_str()).unwrap_or("");
+        let status = get_json
+            .get("status")
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
 
         let result = if status == self.expected_status {
             Ok(format!("slow job timed out correctly, status: {}", status))
@@ -575,7 +589,10 @@ impl JobTimeoutReasonVerified {
 
         let json: JsonValue = serde_json::from_str(&post_response.body)
             .map_err(|e| format!("invalid JSON: {}", e))?;
-        let job_id = json.get("id").and_then(|v| v.as_str()).ok_or("missing id")?;
+        let job_id = json
+            .get("id")
+            .and_then(|v| v.as_str())
+            .ok_or("missing id")?;
 
         // wait for timeout
         sleep(Duration::from_millis(2000)).await;
@@ -584,8 +601,8 @@ impl JobTimeoutReasonVerified {
         let get_path = format!("/jobs/{}", job_id);
         let get_response = http_request(self.port, "GET", &get_path, &[], None).await?;
 
-        let get_json: JsonValue = serde_json::from_str(&get_response.body)
-            .map_err(|e| format!("invalid JSON: {}", e))?;
+        let get_json: JsonValue =
+            serde_json::from_str(&get_response.body).map_err(|e| format!("invalid JSON: {}", e))?;
 
         let reason = get_json
             .get("error")
@@ -594,7 +611,10 @@ impl JobTimeoutReasonVerified {
             .and_then(|v| v.as_str())
             .unwrap_or("");
 
-        let result = if reason.to_lowercase().contains(&self.expected_reason.to_lowercase()) {
+        let result = if reason
+            .to_lowercase()
+            .contains(&self.expected_reason.to_lowercase())
+        {
             Ok(format!("timeout reason correctly set: {}", reason))
         } else {
             Err(format!(
@@ -637,7 +657,10 @@ impl JobRetryVerified {
 
         let json: JsonValue = serde_json::from_str(&post_response.body)
             .map_err(|e| format!("invalid JSON: {}", e))?;
-        let job_id = json.get("id").and_then(|v| v.as_str()).ok_or("missing id")?;
+        let job_id = json
+            .get("id")
+            .and_then(|v| v.as_str())
+            .ok_or("missing id")?;
 
         // wait for retries
         sleep(Duration::from_millis(5000)).await;
@@ -646,8 +669,8 @@ impl JobRetryVerified {
         let get_path = format!("/jobs/{}", job_id);
         let get_response = http_request(self.port, "GET", &get_path, &[], None).await?;
 
-        let get_json: JsonValue = serde_json::from_str(&get_response.body)
-            .map_err(|e| format!("invalid JSON: {}", e))?;
+        let get_json: JsonValue =
+            serde_json::from_str(&get_response.body).map_err(|e| format!("invalid JSON: {}", e))?;
 
         let retries = get_json
             .get("retries")
@@ -762,8 +785,8 @@ impl WorkerScaleDown {
 
         // step 3: check worker count decreased
         let response = http_request(self.port, "GET", "/workers", &[], None).await?;
-        let json: JsonValue = serde_json::from_str(&response.body)
-            .map_err(|e| format!("invalid JSON: {}", e))?;
+        let json: JsonValue =
+            serde_json::from_str(&response.body).map_err(|e| format!("invalid JSON: {}", e))?;
 
         let count = json.get("count").and_then(|v| v.as_u64()).unwrap_or(0) as u32;
 
@@ -860,8 +883,8 @@ impl HttpJsonFieldNested {
     pub async fn validate(&self) -> Result<TestCase, String> {
         let response = http_request(self.port, "GET", &self.path, &[], None).await?;
 
-        let json: JsonValue = serde_json::from_str(&response.body)
-            .map_err(|e| format!("invalid JSON: {}", e))?;
+        let json: JsonValue =
+            serde_json::from_str(&response.body).map_err(|e| format!("invalid JSON: {}", e))?;
 
         let field = get_nested_field(&json, &self.field_path);
 
@@ -911,8 +934,8 @@ impl HttpHealthCheck {
             });
         }
 
-        let json: JsonValue = serde_json::from_str(&response.body)
-            .map_err(|e| format!("invalid JSON: {}", e))?;
+        let json: JsonValue =
+            serde_json::from_str(&response.body).map_err(|e| format!("invalid JSON: {}", e))?;
 
         let actual = json
             .get(&self.expected_field)
@@ -932,7 +955,10 @@ impl HttpHealthCheck {
         };
 
         Ok(TestCase {
-            name: format!("GET {} → {} ({}={})", self.path, self.expected_status, self.expected_field, self.expected_value),
+            name: format!(
+                "GET {} → {} ({}={})",
+                self.path, self.expected_status, self.expected_field, self.expected_value
+            ),
             result,
         })
     }
@@ -959,14 +985,17 @@ impl HttpJsonFieldValue {
     pub async fn validate(&self) -> Result<TestCase, String> {
         let response = http_request(self.port, "GET", &self.path, &[], None).await?;
 
-        let json: JsonValue = serde_json::from_str(&response.body)
-            .map_err(|e| format!("invalid JSON: {}", e))?;
+        let json: JsonValue =
+            serde_json::from_str(&response.body).map_err(|e| format!("invalid JSON: {}", e))?;
 
         let actual = get_nested_field(&json, &self.field);
         let actual_str = actual.map(json_value_to_string).unwrap_or_default();
 
         let result = if actual_str == self.expected_value {
-            Ok(format!("field '{}' = '{}'", self.field, self.expected_value))
+            Ok(format!(
+                "field '{}' = '{}'",
+                self.field, self.expected_value
+            ))
         } else {
             Err(format!(
                 "field '{}' expected '{}', got '{}'",
@@ -975,7 +1004,10 @@ impl HttpJsonFieldValue {
         };
 
         Ok(TestCase {
-            name: format!("GET {} field '{}' = '{}'", self.path, self.field, self.expected_value),
+            name: format!(
+                "GET {} field '{}' = '{}'",
+                self.path, self.field, self.expected_value
+            ),
             result,
         })
     }
@@ -1001,7 +1033,10 @@ impl HttpStatusCheck {
         let response = http_request(self.port, "GET", &self.path, &[], None).await?;
 
         let result = if response.status_code == self.expected_status {
-            Ok(format!("GET {} returned {}", self.path, self.expected_status))
+            Ok(format!(
+                "GET {} returned {}",
+                self.path, self.expected_status
+            ))
         } else {
             Err(format!(
                 "expected status {}, got {}",

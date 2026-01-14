@@ -92,12 +92,9 @@ fn detect_build_command(
                 // check if there are any .go files
                 let has_go_files = std::fs::read_dir(workspace)
                     .map(|entries| {
-                        entries.filter_map(|e| e.ok()).any(|e| {
-                            e.path()
-                                .extension()
-                                .map(|ext| ext == "go")
-                                .unwrap_or(false)
-                        })
+                        entries
+                            .filter_map(|e| e.ok())
+                            .any(|e| e.path().extension().map(|ext| ext == "go").unwrap_or(false))
                     })
                     .unwrap_or(false);
 
@@ -131,12 +128,9 @@ fn detect_build_command(
         // check if there are any .go files
         let has_go_files = std::fs::read_dir(workspace)
             .map(|entries| {
-                entries.filter_map(|e| e.ok()).any(|e| {
-                    e.path()
-                        .extension()
-                        .map(|ext| ext == "go")
-                        .unwrap_or(false)
-                })
+                entries
+                    .filter_map(|e| e.ok())
+                    .any(|e| e.path().extension().map(|ext| ext == "go").unwrap_or(false))
             })
             .unwrap_or(false);
 

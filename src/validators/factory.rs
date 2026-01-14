@@ -11,10 +11,10 @@ use super::parser::{parse_validator, ParsedValidator};
 use super::port::PortValidator;
 use super::process::{ConcurrentAccessValidator, GracefulShutdownValidator};
 use super::scenario::{
-    HttpHealthCheck, HttpJsonFieldNested, HttpJsonFieldValue, HttpRequestWithBody,
-    HttpStatusCheck, JobPriorityVerified, JobProcessingVerified, JobResultVerified,
-    JobRetryVerified, JobSubmissionVerified, JobTimeoutReasonVerified, JobTimeoutVerified,
-    WorkerPoolConcurrent, WorkerScaleDown, WorkerScaleUp,
+    HttpHealthCheck, HttpJsonFieldNested, HttpJsonFieldValue, HttpRequestWithBody, HttpStatusCheck,
+    JobPriorityVerified, JobProcessingVerified, JobResultVerified, JobRetryVerified,
+    JobSubmissionVerified, JobTimeoutReasonVerified, JobTimeoutVerified, WorkerPoolConcurrent,
+    WorkerScaleDown, WorkerScaleUp,
 };
 use crate::tasks::TestCase;
 
@@ -503,7 +503,8 @@ fn create_job_retry(parsed: &ParsedValidator) -> Result<RuntimeValidator, String
     let max_retries = parsed.param_as_int(1).unwrap_or(3) as u32;
 
     Ok(RuntimeValidator::JobRetryVerified(JobRetryVerified::new(
-        job_type, max_retries,
+        job_type,
+        max_retries,
     )))
 }
 
@@ -535,7 +536,10 @@ fn create_worker_scale_down(parsed: &ParsedValidator) -> Result<RuntimeValidator
 fn create_http_request(parsed: &ParsedValidator) -> Result<RuntimeValidator, String> {
     let method = parsed.param_as_string(0)?;
     let path = parsed.param_as_string(1)?;
-    let body = parsed.param(2).and_then(|p| p.as_string()).map(String::from);
+    let body = parsed
+        .param(2)
+        .and_then(|p| p.as_string())
+        .map(String::from);
     let expected_status = parsed.param_as_int(3).unwrap_or(200) as u16;
 
     Ok(RuntimeValidator::HttpRequestWithBody(
@@ -585,7 +589,8 @@ fn create_http_status_check(parsed: &ParsedValidator) -> Result<RuntimeValidator
     let expected_status = parsed.param_as_int(1)? as u16;
 
     Ok(RuntimeValidator::HttpStatusCheck(HttpStatusCheck::new(
-        path, expected_status,
+        path,
+        expected_status,
     )))
 }
 

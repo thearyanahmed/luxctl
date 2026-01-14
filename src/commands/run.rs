@@ -69,11 +69,7 @@ pub async fn run(task_id: &str, project_slug: Option<&str>, detailed: bool) -> R
         if let Some(t) = tasks.iter().find(|t| t.slug == task_id) {
             t
         } else {
-            oops!(
-                "task '{}' not found in project '{}'",
-                task_id,
-                project_slug
-            );
+            oops!("task '{}' not found in project '{}'", task_id, project_slug);
             say!("use task number (1, 2, 3...) or slug:");
             for (i, t) in tasks.iter().enumerate() {
                 say!("  {:02}. {}", i + 1, t.slug);

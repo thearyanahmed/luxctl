@@ -147,19 +147,9 @@ impl Message {
 
     pub fn print_test_case(test: &TestCase, index: usize) {
         if test.passed() {
-            println!(
-                "{} #{} {}",
-                "✓".green(),
-                index + 1,
-                test.name
-            );
+            println!("{} #{} {}", "✓".green(), index + 1, test.name);
         } else {
-            println!(
-                "{} #{} {}",
-                "✗".red(),
-                index + 1,
-                test.name.red()
-            );
+            println!("{} #{} {}", "✗".red(), index + 1, test.name.red());
 
             if test.message() != test.name {
                 // truncate long error messages for display

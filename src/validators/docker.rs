@@ -88,8 +88,13 @@ impl RaceDetectorValidator {
         };
 
         // get absolute path to source directory
-        let source_path = std::fs::canonicalize(&source_dir)
-            .map_err(|e| format!("cannot resolve source dir '{}': {}", source_dir.display(), e))?;
+        let source_path = std::fs::canonicalize(&source_dir).map_err(|e| {
+            format!(
+                "cannot resolve source dir '{}': {}",
+                source_dir.display(),
+                e
+            )
+        })?;
 
         let source_path_str = source_path.to_string_lossy();
 
@@ -106,9 +111,7 @@ impl RaceDetectorValidator {
 
         // step 2: run the binary with race detector and concurrent load
         eprintln!("  running race detection tests...");
-        let run_result = self
-            .docker_run_with_race_load(&source_path_str)
-            .await?;
+        let run_result = self.docker_run_with_race_load(&source_path_str).await?;
 
         // step 3: check for race conditions in output
         let has_race = run_result.stderr.contains("WARNING: DATA RACE")
@@ -311,11 +314,7 @@ fn extract_race_info(stderr: &str) -> String {
 
     if race_sections.is_empty() {
         // fallback: return first few lines that might be relevant
-        stderr
-            .lines()
-            .take(20)
-            .collect::<Vec<_>>()
-            .join("\n")
+        stderr.lines().take(20).collect::<Vec<_>>().join("\n")
     } else {
         // limit to first 3 race reports to avoid overwhelming output
         race_sections
@@ -603,16 +602,17 @@ Write at 0x00c0000a4030 by goroutine 10:
 
     #[tokio::test]
     async fn test_race_detector_validate_invalid_source_dir() {
-        let validator =
-            RaceDetectorValidator::new(true).with_source_dir("/nonexistent/path/12345");
+        let validator = RaceDetectorValidator::new(true).with_source_dir("/nonexistent/path/12345");
 
         let result = validator.validate().await;
 
         // should return error about source directory
-        assert!(result.is_err() || {
-            let test_case = result.unwrap();
-            test_case.result.is_err()
-        });
+        assert!(
+            result.is_err() || {
+                let test_case = result.unwrap();
+                test_case.result.is_err()
+            }
+        );
     }
 
     #[tokio::test]
@@ -626,10 +626,12 @@ Write at 0x00c0000a4030 by goroutine 10:
         let result = validator.validate().await;
 
         // should return error about source directory or docker
-        assert!(result.is_err() || {
-            let test_case = result.unwrap();
-            test_case.result.is_err()
-        });
+        assert!(
+            result.is_err() || {
+                let test_case = result.unwrap();
+                test_case.result.is_err()
+            }
+        );
     }
 
     // ==========================================

@@ -57,11 +57,7 @@ pub async fn show(task_id: &str, detailed: bool) -> Result<()> {
     } else if let Some(t) = tasks.iter().find(|t| t.slug == task_id) {
         t
     } else {
-        oops!(
-            "task '{}' not found in project '{}'",
-            task_id,
-            project_slug
-        );
+        oops!("task '{}' not found in project '{}'", task_id, project_slug);
         return Ok(());
     };
 
