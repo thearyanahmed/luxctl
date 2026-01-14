@@ -1,12 +1,21 @@
 use super::compile::CanCompileValidator;
+use super::docker::{GoCompileValidator, RaceDetectorValidator};
 use super::file::FileContentsMatchValidator;
 use super::http::{
     ConcurrentRequestsValidator, HttpGetCompressedValidator, HttpGetFileValidator,
     HttpGetValidator, HttpGetWithHeaderValidator, HttpHeaderPresentValidator,
-    HttpHeaderValueValidator, HttpPostFileValidator, HttpStatusValidator,
+    HttpHeaderValueValidator, HttpJsonExistsValidator, HttpJsonFieldValidator,
+    HttpPostFileValidator, HttpPostJsonValidator, HttpStatusValidator, RateLimitValidator,
 };
 use super::parser::{parse_validator, ParsedValidator};
 use super::port::PortValidator;
+use super::process::{ConcurrentAccessValidator, GracefulShutdownValidator};
+use super::scenario::{
+    HttpHealthCheck, HttpJsonFieldNested, HttpJsonFieldValue, HttpRequestWithBody,
+    HttpStatusCheck, JobPriorityVerified, JobProcessingVerified, JobResultVerified,
+    JobRetryVerified, JobSubmissionVerified, JobTimeoutReasonVerified, JobTimeoutVerified,
+    WorkerPoolConcurrent, WorkerScaleDown, WorkerScaleUp,
+};
 use crate::tasks::TestCase;
 
 /// Runtime validator that can execute any parsed validator type
@@ -23,6 +32,32 @@ pub enum RuntimeValidator {
     HttpGetCompressed(HttpGetCompressedValidator),
     FileContentsMatch(FileContentsMatchValidator),
     CanCompile(CanCompileValidator),
+    // http validators
+    HttpJsonExists(HttpJsonExistsValidator),
+    HttpJsonField(HttpJsonFieldValidator),
+    HttpPostJson(HttpPostJsonValidator),
+    RateLimit(RateLimitValidator),
+    GracefulShutdown(GracefulShutdownValidator),
+    ConcurrentAccess(ConcurrentAccessValidator),
+    // scenario validators (multi-step)
+    JobSubmissionVerified(JobSubmissionVerified),
+    JobProcessingVerified(JobProcessingVerified),
+    WorkerPoolConcurrent(WorkerPoolConcurrent),
+    JobResultVerified(JobResultVerified),
+    JobPriorityVerified(JobPriorityVerified),
+    JobTimeoutVerified(JobTimeoutVerified),
+    JobTimeoutReasonVerified(JobTimeoutReasonVerified),
+    JobRetryVerified(JobRetryVerified),
+    WorkerScaleUp(WorkerScaleUp),
+    WorkerScaleDown(WorkerScaleDown),
+    HttpRequestWithBody(HttpRequestWithBody),
+    HttpJsonFieldNested(HttpJsonFieldNested),
+    HttpHealthCheck(HttpHealthCheck),
+    HttpJsonFieldValue(HttpJsonFieldValue),
+    HttpStatusCheck(HttpStatusCheck),
+    // docker-based validators (language-specific)
+    RaceDetector(RaceDetectorValidator),
+    GoCompile(GoCompileValidator),
     // placeholder for validators not yet implemented
     NotImplemented(String),
 }
@@ -42,6 +77,30 @@ impl RuntimeValidator {
             RuntimeValidator::HttpGetCompressed(v) => v.validate().await,
             RuntimeValidator::FileContentsMatch(v) => v.validate().await,
             RuntimeValidator::CanCompile(v) => v.validate().await,
+            RuntimeValidator::HttpJsonExists(v) => v.validate().await,
+            RuntimeValidator::HttpJsonField(v) => v.validate().await,
+            RuntimeValidator::HttpPostJson(v) => v.validate().await,
+            RuntimeValidator::RateLimit(v) => v.validate().await,
+            RuntimeValidator::GracefulShutdown(v) => v.validate().await,
+            RuntimeValidator::ConcurrentAccess(v) => v.validate().await,
+            // scenario validators
+            RuntimeValidator::JobSubmissionVerified(v) => v.validate().await,
+            RuntimeValidator::JobProcessingVerified(v) => v.validate().await,
+            RuntimeValidator::WorkerPoolConcurrent(v) => v.validate().await,
+            RuntimeValidator::JobResultVerified(v) => v.validate().await,
+            RuntimeValidator::JobPriorityVerified(v) => v.validate().await,
+            RuntimeValidator::JobTimeoutVerified(v) => v.validate().await,
+            RuntimeValidator::JobTimeoutReasonVerified(v) => v.validate().await,
+            RuntimeValidator::JobRetryVerified(v) => v.validate().await,
+            RuntimeValidator::WorkerScaleUp(v) => v.validate().await,
+            RuntimeValidator::WorkerScaleDown(v) => v.validate().await,
+            RuntimeValidator::HttpRequestWithBody(v) => v.validate().await,
+            RuntimeValidator::HttpJsonFieldNested(v) => v.validate().await,
+            RuntimeValidator::HttpHealthCheck(v) => v.validate().await,
+            RuntimeValidator::HttpJsonFieldValue(v) => v.validate().await,
+            RuntimeValidator::HttpStatusCheck(v) => v.validate().await,
+            RuntimeValidator::RaceDetector(v) => v.validate().await,
+            RuntimeValidator::GoCompile(v) => v.validate().await,
             RuntimeValidator::NotImplemented(name) => Ok(TestCase {
                 name: format!("validator '{}'", name),
                 result: Err(format!("validator '{}' not implemented yet", name)),
@@ -63,6 +122,30 @@ impl RuntimeValidator {
             RuntimeValidator::HttpGetCompressed(_) => "http_get_compressed",
             RuntimeValidator::FileContentsMatch(_) => "file_contents_match",
             RuntimeValidator::CanCompile(_) => "can_compile",
+            RuntimeValidator::HttpJsonExists(_) => "http_json_exists",
+            RuntimeValidator::HttpJsonField(_) => "http_json_field",
+            RuntimeValidator::HttpPostJson(_) => "http_post_json",
+            RuntimeValidator::RateLimit(_) => "rate_limit",
+            RuntimeValidator::GracefulShutdown(_) => "graceful_shutdown",
+            RuntimeValidator::ConcurrentAccess(_) => "concurrent_access",
+            // scenario validators
+            RuntimeValidator::JobSubmissionVerified(_) => "job_submission_verified",
+            RuntimeValidator::JobProcessingVerified(_) => "job_processing_verified",
+            RuntimeValidator::WorkerPoolConcurrent(_) => "worker_pool_concurrent",
+            RuntimeValidator::JobResultVerified(_) => "job_result",
+            RuntimeValidator::JobPriorityVerified(_) => "job_priority",
+            RuntimeValidator::JobTimeoutVerified(_) => "job_timeout",
+            RuntimeValidator::JobTimeoutReasonVerified(_) => "job_timeout_reason",
+            RuntimeValidator::JobRetryVerified(_) => "job_retry",
+            RuntimeValidator::WorkerScaleUp(_) => "worker_scale_up",
+            RuntimeValidator::WorkerScaleDown(_) => "worker_scale_down",
+            RuntimeValidator::HttpRequestWithBody(_) => "http_request",
+            RuntimeValidator::HttpJsonFieldNested(_) => "http_json_field_nested",
+            RuntimeValidator::HttpHealthCheck(_) => "http_health_check",
+            RuntimeValidator::HttpJsonFieldValue(_) => "http_json_field_value",
+            RuntimeValidator::HttpStatusCheck(_) => "http_status_check",
+            RuntimeValidator::RaceDetector(_) => "race_detector",
+            RuntimeValidator::GoCompile(_) => "go_compile",
             RuntimeValidator::NotImplemented(name) => name,
         }
     }
@@ -89,6 +172,30 @@ fn create_from_parsed(parsed: &ParsedValidator) -> Result<RuntimeValidator, Stri
         "http_get_file" => create_http_get_file(parsed),
         "http_get_compressed" => create_http_get_compressed(parsed),
         "file_contents_match" => create_file_contents_match(parsed),
+        "http_json_exists" => create_http_json_exists(parsed),
+        "http_json_field" => create_http_json_field(parsed),
+        "http_post_json" => create_http_post_json(parsed),
+        "rate_limit" => create_rate_limit(parsed),
+        "graceful_shutdown" => create_graceful_shutdown(parsed),
+        "concurrent_access" => create_concurrent_access(parsed),
+        // scenario validators
+        "job_submission_verified" => create_job_submission_verified(parsed),
+        "job_processing_verified" => create_job_processing_verified(parsed),
+        "worker_pool_concurrent" => create_worker_pool_concurrent(parsed),
+        "job_result" => create_job_result(parsed),
+        "job_priority" => create_job_priority(parsed),
+        "job_timeout" => create_job_timeout(parsed),
+        "job_timeout_reason" => create_job_timeout_reason(parsed),
+        "job_retry" => create_job_retry(parsed),
+        "worker_scale_up" => create_worker_scale_up(parsed),
+        "worker_scale_down" => create_worker_scale_down(parsed),
+        "http_request" => create_http_request(parsed),
+        "http_json_field_nested" => create_http_json_field_nested(parsed),
+        "http_health_check" => create_http_health_check(parsed),
+        "http_json_field_value" => create_http_json_field_value(parsed),
+        "http_status_check" => create_http_status_check(parsed),
+        "race_detector" => create_race_detector(parsed),
+        "go_compile" => create_go_compile(parsed),
         _ => Ok(RuntimeValidator::NotImplemented(parsed.name.clone())),
     }
 }
@@ -226,6 +333,286 @@ fn create_file_contents_match(parsed: &ParsedValidator) -> Result<RuntimeValidat
     ))
 }
 
+// http_json_exists:string(/path),string(GET),string(field1),string(field2)
+fn create_http_json_exists(parsed: &ParsedValidator) -> Result<RuntimeValidator, String> {
+    let path = parsed.param_as_string(0)?;
+    let method = parsed.param_as_string(1)?;
+
+    // collect remaining params as field names
+    let mut fields = Vec::new();
+    let mut idx = 2;
+    while let Some(param) = parsed.param(idx) {
+        if let Some(field) = param.as_string() {
+            fields.push(field.to_string());
+        }
+        idx += 1;
+    }
+
+    Ok(RuntimeValidator::HttpJsonExists(
+        HttpJsonExistsValidator::new(path, method, fields),
+    ))
+}
+
+// http_json_field:string(/path),string(GET),string(field),string(expected_value)
+fn create_http_json_field(parsed: &ParsedValidator) -> Result<RuntimeValidator, String> {
+    let path = parsed.param_as_string(0)?;
+    let method = parsed.param_as_string(1)?;
+    let field = parsed.param_as_string(2)?;
+    let expected_value = parsed.param_as_string(3)?;
+
+    Ok(RuntimeValidator::HttpJsonField(
+        HttpJsonFieldValidator::new(path, method, field, expected_value),
+    ))
+}
+
+// http_post_json:string(/path),string({"key":"value"}),int(201)
+fn create_http_post_json(parsed: &ParsedValidator) -> Result<RuntimeValidator, String> {
+    let path = parsed.param_as_string(0)?;
+    let body = parsed.param_as_string(1)?;
+    let expected_status = parsed.param_as_int(2)? as u16;
+
+    Ok(RuntimeValidator::HttpPostJson(HttpPostJsonValidator::new(
+        path,
+        body,
+        expected_status,
+    )))
+}
+
+// rate_limit:string(/path),string(POST),int(100),int(1000),int(90)
+// params: path, method, total_requests, window_ms, expected_rejected
+fn create_rate_limit(parsed: &ParsedValidator) -> Result<RuntimeValidator, String> {
+    let path = parsed.param_as_string(0)?;
+    let method = parsed.param_as_string(1)?;
+    let requests = parsed.param_as_int(2)? as u32;
+    let window_ms = parsed.param_as_int(3)? as u64;
+    let expected_rejected = parsed.param_as_int(4)? as u32;
+
+    Ok(RuntimeValidator::RateLimit(RateLimitValidator::new(
+        path,
+        method,
+        requests,
+        window_ms,
+        expected_rejected,
+    )))
+}
+
+// graceful_shutdown:string(./binary),int(5000)
+fn create_graceful_shutdown(parsed: &ParsedValidator) -> Result<RuntimeValidator, String> {
+    let binary_path = parsed.param_as_string(0)?;
+    let timeout_ms = parsed.param_as_int(1)? as u64;
+
+    Ok(RuntimeValidator::GracefulShutdown(
+        GracefulShutdownValidator::new(binary_path, timeout_ms),
+    ))
+}
+
+// concurrent_access:int(4221),string(/path),int(10),int(100)
+// params: port, path, concurrent_clients, operations_per_client
+fn create_concurrent_access(parsed: &ParsedValidator) -> Result<RuntimeValidator, String> {
+    let port = parsed.param_as_int(0)? as u16;
+    let path = parsed.param_as_string(1)?;
+    let concurrent_count = parsed.param_as_int(2)? as u32;
+    let operations = parsed.param_as_int(3)? as u32;
+
+    Ok(RuntimeValidator::ConcurrentAccess(
+        ConcurrentAccessValidator::new(port, path, concurrent_count, operations),
+    ))
+}
+
+// ============================================
+// SCENARIO VALIDATORS (multi-step)
+// ============================================
+
+// job_submission_verified:string(test),string(payload)
+fn create_job_submission_verified(parsed: &ParsedValidator) -> Result<RuntimeValidator, String> {
+    let job_type = parsed.param_as_string(0).unwrap_or("test");
+    let payload = parsed.param_as_string(1).unwrap_or("data");
+
+    Ok(RuntimeValidator::JobSubmissionVerified(
+        JobSubmissionVerified::new(job_type, payload),
+    ))
+}
+
+// job_processing_verified:int(200),string(completed)
+fn create_job_processing_verified(parsed: &ParsedValidator) -> Result<RuntimeValidator, String> {
+    let wait_ms = parsed.param_as_int(0).unwrap_or(200) as u64;
+    let expected_status = parsed.param_as_string(1).unwrap_or("completed");
+
+    Ok(RuntimeValidator::JobProcessingVerified(
+        JobProcessingVerified::new(wait_ms, expected_status),
+    ))
+}
+
+// worker_pool_concurrent:int(4),int(4),int(500)
+// params: workers, jobs, max_time_ms
+fn create_worker_pool_concurrent(parsed: &ParsedValidator) -> Result<RuntimeValidator, String> {
+    let workers = parsed.param_as_int(0).unwrap_or(4) as u32;
+    let jobs = parsed.param_as_int(1).unwrap_or(4) as u32;
+    let max_time_ms = parsed.param_as_int(2).unwrap_or(1000) as u64;
+
+    Ok(RuntimeValidator::WorkerPoolConcurrent(
+        WorkerPoolConcurrent::new(workers, jobs, max_time_ms),
+    ))
+}
+
+// job_result:string(echo),string(hello),string(hello)
+fn create_job_result(parsed: &ParsedValidator) -> Result<RuntimeValidator, String> {
+    let job_type = parsed.param_as_string(0)?;
+    let payload = parsed.param_as_string(1)?;
+    let expected_result = parsed.param_as_string(2)?;
+
+    Ok(RuntimeValidator::JobResultVerified(JobResultVerified::new(
+        job_type,
+        payload,
+        expected_result,
+    )))
+}
+
+// job_priority:int(10),int(1)
+fn create_job_priority(parsed: &ParsedValidator) -> Result<RuntimeValidator, String> {
+    let high_priority = parsed.param_as_int(0).unwrap_or(10) as u32;
+    let low_priority = parsed.param_as_int(1).unwrap_or(1) as u32;
+
+    Ok(RuntimeValidator::JobPriorityVerified(
+        JobPriorityVerified::new(high_priority, low_priority),
+    ))
+}
+
+// job_timeout:int(5000),string(failed)
+fn create_job_timeout(parsed: &ParsedValidator) -> Result<RuntimeValidator, String> {
+    let job_duration_ms = parsed.param_as_int(0).unwrap_or(5000) as u64;
+    let expected_status = parsed.param_as_string(1).unwrap_or("failed");
+
+    Ok(RuntimeValidator::JobTimeoutVerified(
+        JobTimeoutVerified::new(job_duration_ms, expected_status),
+    ))
+}
+
+// job_timeout_reason:string(timeout)
+fn create_job_timeout_reason(parsed: &ParsedValidator) -> Result<RuntimeValidator, String> {
+    let expected_reason = parsed.param_as_string(0).unwrap_or("timeout");
+
+    Ok(RuntimeValidator::JobTimeoutReasonVerified(
+        JobTimeoutReasonVerified::new(expected_reason),
+    ))
+}
+
+// job_retry:string(flaky),int(3)
+fn create_job_retry(parsed: &ParsedValidator) -> Result<RuntimeValidator, String> {
+    let job_type = parsed.param_as_string(0).unwrap_or("flaky");
+    let max_retries = parsed.param_as_int(1).unwrap_or(3) as u32;
+
+    Ok(RuntimeValidator::JobRetryVerified(JobRetryVerified::new(
+        job_type, max_retries,
+    )))
+}
+
+// worker_scale_up:int(2),int(50),int(4)
+fn create_worker_scale_up(parsed: &ParsedValidator) -> Result<RuntimeValidator, String> {
+    let initial_workers = parsed.param_as_int(0).unwrap_or(2) as u32;
+    let job_count = parsed.param_as_int(1).unwrap_or(50) as u32;
+    let expected_min_workers = parsed.param_as_int(2).unwrap_or(4) as u32;
+
+    Ok(RuntimeValidator::WorkerScaleUp(WorkerScaleUp::new(
+        initial_workers,
+        job_count,
+        expected_min_workers,
+    )))
+}
+
+// worker_scale_down:int(8),int(4)
+fn create_worker_scale_down(parsed: &ParsedValidator) -> Result<RuntimeValidator, String> {
+    let initial_workers = parsed.param_as_int(0).unwrap_or(8) as u32;
+    let expected_max_workers = parsed.param_as_int(1).unwrap_or(4) as u32;
+
+    Ok(RuntimeValidator::WorkerScaleDown(WorkerScaleDown::new(
+        initial_workers,
+        expected_max_workers,
+    )))
+}
+
+// http_request:string(POST),string(/jobs),string({"type":"test"}),int(201)
+fn create_http_request(parsed: &ParsedValidator) -> Result<RuntimeValidator, String> {
+    let method = parsed.param_as_string(0)?;
+    let path = parsed.param_as_string(1)?;
+    let body = parsed.param(2).and_then(|p| p.as_string()).map(String::from);
+    let expected_status = parsed.param_as_int(3).unwrap_or(200) as u16;
+
+    Ok(RuntimeValidator::HttpRequestWithBody(
+        HttpRequestWithBody::new(method, path, body.as_deref(), expected_status),
+    ))
+}
+
+// http_json_field_nested:string(/stats),string(workers.total)
+fn create_http_json_field_nested(parsed: &ParsedValidator) -> Result<RuntimeValidator, String> {
+    let path = parsed.param_as_string(0)?;
+    let field_path = parsed.param_as_string(1)?;
+
+    Ok(RuntimeValidator::HttpJsonFieldNested(
+        HttpJsonFieldNested::new(path, field_path),
+    ))
+}
+
+// http_health_check:string(/health),int(200),string(status),string(ok)
+fn create_http_health_check(parsed: &ParsedValidator) -> Result<RuntimeValidator, String> {
+    let path = parsed.param_as_string(0)?;
+    let expected_status = parsed.param_as_int(1)? as u16;
+    let field = parsed.param_as_string(2)?;
+    let value = parsed.param_as_string(3)?;
+
+    Ok(RuntimeValidator::HttpHealthCheck(HttpHealthCheck::new(
+        path,
+        expected_status,
+        field,
+        value,
+    )))
+}
+
+// http_json_field_value:string(/path),string(field),string(expected_value)
+fn create_http_json_field_value(parsed: &ParsedValidator) -> Result<RuntimeValidator, String> {
+    let path = parsed.param_as_string(0)?;
+    let field = parsed.param_as_string(1)?;
+    let expected_value = parsed.param_as_string(2)?;
+
+    Ok(RuntimeValidator::HttpJsonFieldValue(
+        HttpJsonFieldValue::new(path, field, expected_value),
+    ))
+}
+
+// http_status_check:string(/path),int(expected_status)
+fn create_http_status_check(parsed: &ParsedValidator) -> Result<RuntimeValidator, String> {
+    let path = parsed.param_as_string(0)?;
+    let expected_status = parsed.param_as_int(1)? as u16;
+
+    Ok(RuntimeValidator::HttpStatusCheck(HttpStatusCheck::new(
+        path, expected_status,
+    )))
+}
+
+// ============================================
+// DOCKER-BASED VALIDATORS (language-specific)
+// ============================================
+
+// race_detector:bool(true)
+// param 0: expected_clean - true if no races expected
+fn create_race_detector(parsed: &ParsedValidator) -> Result<RuntimeValidator, String> {
+    let expected_clean = parsed.param_as_bool(0).unwrap_or(true);
+
+    Ok(RuntimeValidator::RaceDetector(RaceDetectorValidator::new(
+        expected_clean,
+    )))
+}
+
+// go_compile:bool(true)
+// param 0: expected_success - true if build should succeed
+fn create_go_compile(parsed: &ParsedValidator) -> Result<RuntimeValidator, String> {
+    let expected_success = parsed.param_as_bool(0).unwrap_or(true);
+
+    Ok(RuntimeValidator::GoCompile(GoCompileValidator::new(
+        expected_success,
+    )))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -250,7 +637,8 @@ mod tests {
 
     #[test]
     fn test_create_http_get_with_body() {
-        let validator = create_validator("http_get:string(/echo/hello),int(200),string(hello)").unwrap();
+        let validator =
+            create_validator("http_get:string(/echo/hello),int(200),string(hello)").unwrap();
         assert_eq!(validator.name(), "http_get");
     }
 
@@ -278,9 +666,10 @@ mod tests {
 
     #[test]
     fn test_create_http_post_file() {
-        let validator =
-            create_validator("http_post_file:string(/files/upload.txt),string(hello world),int(201)")
-                .unwrap();
+        let validator = create_validator(
+            "http_post_file:string(/files/upload.txt),string(hello world),int(201)",
+        )
+        .unwrap();
         assert_eq!(validator.name(), "http_post_file");
     }
 
