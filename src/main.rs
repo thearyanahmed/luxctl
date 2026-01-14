@@ -162,14 +162,16 @@ async fn main() -> Result<()> {
         }
 
         Commands::Whoami => {
-            let config = Config::load().ok();
-            if config.is_none() || !config.as_ref().unwrap().has_auth_token() {
-                println!("nobody");
-                println!("login with: {}", Commands::AUTH_USAGE);
-                return Ok(());
-            }
+            let config = match Config::load() {
+                Ok(c) if c.has_auth_token() => c,
+                _ => {
+                    println!("nobody");
+                    println!("login with: {}", Commands::AUTH_USAGE);
+                    return Ok(());
+                }
+            };
 
-            let client = LighthouseAPIClient::from_config(config.as_ref().unwrap());
+            let client = LighthouseAPIClient::from_config(&config);
             match client.me().await {
                 Ok(user) => {
                     println!("{}", user.name);
