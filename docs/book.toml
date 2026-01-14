@@ -1,0 +1,15 @@
+[book]
+title = "Lux Documentation"
+authors = ["Project Lighthouse"]
+language = "en"
+multilingual = false
+src = "src"
+
+[build]
+build-dir = "book"
+
+[output.html]
+default-theme = "navy"
+preferred-dark-theme = "navy"
+git-repository-url = "https://github.com/projectlighthouse/lux"
+edit-url-template = "https://github.com/projectlighthouse/lux/edit/master/docs/{path}"
