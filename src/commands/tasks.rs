@@ -16,7 +16,9 @@ pub async fn list(refresh: bool) -> Result<()> {
 
     let mut state = ProjectState::load(config.expose_token())?;
 
-    let project = if let Some(p) = state.get_active() { p.clone() } else {
+    let project = if let Some(p) = state.get_active() {
+        p.clone()
+    } else {
         oops!("no active project");
         say!("run `lux project start --slug <SLUG>` first");
         return Ok(());

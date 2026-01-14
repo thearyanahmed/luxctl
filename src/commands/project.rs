@@ -76,7 +76,10 @@ pub fn stop() -> Result<()> {
     let mut state = ProjectState::load(config.expose_token())?;
 
     if state.get_active().is_some() {
-        let name = state.get_active().map(|p| p.name.clone()).unwrap_or_default();
+        let name = state
+            .get_active()
+            .map(|p| p.name.clone())
+            .unwrap_or_default();
         state.clear_active();
         state.save(config.expose_token())?;
         say!("stopped working on: {}", name);

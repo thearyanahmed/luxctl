@@ -17,7 +17,9 @@ pub async fn validate_all(include_passed: bool, detailed: bool) -> Result<()> {
     let token = config.expose_token().to_string();
     let mut state = ProjectState::load(&token)?;
 
-    let active = if let Some(p) = state.get_active() { p.clone() } else {
+    let active = if let Some(p) = state.get_active() {
+        p.clone()
+    } else {
         oops!("no active project");
         say!("run `lux project start --slug <SLUG>` first");
         return Ok(());
@@ -34,7 +36,9 @@ pub async fn validate_all(include_passed: bool, detailed: bool) -> Result<()> {
         }
     };
 
-    let tasks = if let Some(t) = &project.tasks { t } else {
+    let tasks = if let Some(t) = &project.tasks {
+        t
+    } else {
         oops!("project has no tasks");
         return Ok(());
     };
