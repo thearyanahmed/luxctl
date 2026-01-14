@@ -4,12 +4,13 @@ use crate::api::{LighthouseAPIClient, SubmitAttemptRequest, Task, TaskOutcome};
 use crate::config::Config;
 use crate::message::Message;
 use crate::state::ProjectState;
-use crate::tasks::TestResults;
+use crate::tasks::{TestCase, TestResults};
 use crate::validators::create_validator;
 use crate::{cheer, complain, oops, say};
 
-/// handle `lux run --task <slug> [--project <slug>]`
-pub async fn run(task_slug: &str, project_slug: Option<&str>, detailed: bool) -> Result<()> {
+/// handle `lux run --task <slug|number> [--project <slug>]`
+/// task can be specified by slug or by number (1, 01, 2, 02, etc.)
+pub async fn run(task_id: &str, project_slug: Option<&str>, detailed: bool) -> Result<()> {
     let config = Config::load()?;
     if !config.has_auth_token() {
         oops!("not authenticated. Run: `lux auth --token <TOKEN>`");
@@ -43,7 +44,7 @@ pub async fn run(task_slug: &str, project_slug: Option<&str>, detailed: bool) ->
         }
     };
 
-    // find the task by slug
+    // get tasks list
     let tasks = if let Some(t) = &project_data.tasks {
         t
     } else {
@@ -51,19 +52,34 @@ pub async fn run(task_slug: &str, project_slug: Option<&str>, detailed: bool) ->
         return Ok(());
     };
 
-    let task_data = if let Some(t) = tasks.iter().find(|t| t.slug == task_slug) {
-        t
-    } else {
-        oops!(
-            "task '{}' not found in project '{}'",
-            task_slug,
-            project_slug
-        );
-        say!("available tasks:");
-        for t in tasks {
-            say!("  - {}", t.slug);
+    // find task by number or slug
+    let task_data = if let Ok(task_num) = task_id.parse::<usize>() {
+        // task specified by number (1-based index)
+        if task_num == 0 || task_num > tasks.len() {
+            oops!(
+                "task #{} not found. valid range: 1-{}",
+                task_num,
+                tasks.len()
+            );
+            return Ok(());
         }
-        return Ok(());
+        &tasks[task_num - 1]
+    } else {
+        // task specified by slug
+        if let Some(t) = tasks.iter().find(|t| t.slug == task_id) {
+            t
+        } else {
+            oops!(
+                "task '{}' not found in project '{}'",
+                task_id,
+                project_slug
+            );
+            say!("use task number (1, 2, 3...) or slug:");
+            for (i, t) in tasks.iter().enumerate() {
+                say!("  {:02}. {}", i + 1, t.slug);
+            }
+            return Ok(());
+        }
     };
 
     run_task_validators(
@@ -122,12 +138,13 @@ pub async fn run_task_validators(
                 results.add(test_case);
             }
             Err(err) => {
-                // connection errors get special treatment
-                if err.contains("connection failed") || err.contains("connection timeout") {
-                    Message::print_connection_error(4221);
-                    return Ok(());
-                }
-                oops!("validator error: {}", err);
+                // record as failed test case with error as the name
+                let failed_case = TestCase {
+                    name: err.clone(),
+                    result: Err(err),
+                };
+                Message::print_test_case(&failed_case, i);
+                results.add(failed_case);
             }
         }
     }
@@ -153,6 +170,13 @@ pub async fn run_task_validators(
         .collect::<Vec<_>>()
         .join("\n");
 
+    // truncate context if too long (API limit is 5000 chars)
+    let context = if context.len() > 4900 {
+        format!("{}...[truncated]", &context[..4900])
+    } else {
+        context
+    };
+
     let attempt_request = SubmitAttemptRequest {
         project_slug: project_slug.to_string(),
         task_id: task.id,
@@ -165,11 +189,9 @@ pub async fn run_task_validators(
         Ok(response) => {
             log::debug!("attempt recorded: {:?}", response);
             if response.data.is_reattempt {
-                say!("re-attempt recorded (no additional points)");
+                log::debug!("re-attempt recorded (no additional points)");
             } else if response.data.task_outcome == "passed" {
                 cheer!("task completed! +{} points", response.data.points_achieved);
-            } else {
-                say!("attempt recorded");
             }
 
             // update cached task status if state context provided
