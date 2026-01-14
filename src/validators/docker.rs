@@ -3,13 +3,36 @@
 //! These validators run inside Docker containers to provide language-specific
 //! validation capabilities (e.g., Go race detector, compiler checks).
 
+use crate::config::Config;
+use crate::state::ProjectState;
 use crate::tasks::TestCase;
+use std::path::PathBuf;
 use std::process::Stdio;
 use tokio::process::Command;
 use tokio::time::{timeout, Duration};
 
 const DEFAULT_TIMEOUT_SECS: u64 = 120;
-const GO_IMAGE: &str = "golang:1.22-alpine";
+// use non-alpine image because -race requires CGO
+const GO_IMAGE: &str = "golang:1.22";
+
+/// get workspace path from project state
+fn get_workspace() -> PathBuf {
+    let config = match Config::load() {
+        Ok(c) => c,
+        Err(_) => return PathBuf::from("."),
+    };
+    if !config.has_auth_token() {
+        return PathBuf::from(".");
+    }
+    let state = match ProjectState::load(config.expose_token()) {
+        Ok(s) => s,
+        Err(_) => return PathBuf::from("."),
+    };
+    match state.get_active() {
+        Some(project) => PathBuf::from(&project.workspace),
+        None => PathBuf::from("."),
+    }
+}
 
 /// Validator: Run Go race detector on user's code
 ///
@@ -56,13 +79,22 @@ impl RaceDetectorValidator {
             });
         }
 
+        // get workspace from project state, fall back to source_dir
+        let workspace = get_workspace();
+        let source_dir = if workspace.as_os_str() != "." {
+            workspace
+        } else {
+            PathBuf::from(&self.source_dir)
+        };
+
         // get absolute path to source directory
-        let source_path = std::fs::canonicalize(&self.source_dir)
-            .map_err(|e| format!("cannot resolve source dir '{}': {}", self.source_dir, e))?;
+        let source_path = std::fs::canonicalize(&source_dir)
+            .map_err(|e| format!("cannot resolve source dir '{}': {}", source_dir.display(), e))?;
 
         let source_path_str = source_path.to_string_lossy();
 
         // step 1: build with race detector inside container
+        eprintln!("  building with race detector (this may take a moment)...");
         let build_result = self.docker_build_with_race(&source_path_str).await?;
 
         if !build_result.success {
@@ -73,6 +105,7 @@ impl RaceDetectorValidator {
         }
 
         // step 2: run the binary with race detector and concurrent load
+        eprintln!("  running race detection tests...");
         let run_result = self
             .docker_run_with_race_load(&source_path_str)
             .await?;
@@ -322,7 +355,15 @@ impl GoCompileValidator {
             });
         }
 
-        let source_path = std::fs::canonicalize(&self.source_dir)
+        // get workspace from project state, fall back to source_dir
+        let workspace = get_workspace();
+        let source_dir = if workspace.as_os_str() != "." {
+            workspace
+        } else {
+            PathBuf::from(&self.source_dir)
+        };
+
+        let source_path = std::fs::canonicalize(&source_dir)
             .map_err(|e| format!("cannot resolve source dir: {}", e))?;
 
         let source_path_str = source_path.to_string_lossy();
@@ -342,6 +383,7 @@ impl GoCompileValidator {
         args.extend(self.flags.clone());
         args.push(".".to_string());
 
+        eprintln!("  compiling go code (pulling image if needed)...");
         let output = Command::new("docker")
             .args(&args)
             .stdout(Stdio::piped())
