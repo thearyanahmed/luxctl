@@ -87,7 +87,11 @@ impl Message {
 
                 // Show status marker only for completed tasks
                 let is_completed = task.status == "completed" || task.status == "success";
-                let status_marker = if is_completed { " ✓".green().to_string() } else { String::new() };
+                let status_marker = if is_completed {
+                    " ✓".green().to_string()
+                } else {
+                    String::new()
+                };
 
                 println!(
                     "    {}── {} {}  {}",
@@ -178,10 +182,7 @@ impl Message {
     }
 
     pub fn print_connection_error(port: u16) {
-        Self::oops(&format!(
-            "could not connect to server on port {}",
-            port
-        ));
+        Self::oops(&format!("could not connect to server on port {}", port));
         println!();
         println!("    make sure your server is running:");
         println!("    {}", "  ./your-server".dimmed());
