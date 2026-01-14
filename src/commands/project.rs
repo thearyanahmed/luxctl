@@ -5,8 +5,8 @@ use crate::config::Config;
 use crate::state::ProjectState;
 use crate::{cheer, oops, say};
 
-/// handle `lux project start --slug <slug>`
-pub async fn start(slug: &str) -> Result<()> {
+/// handle `lux project start --slug <slug> --workspace <path> [--runtime <runtime>]`
+pub async fn start(slug: &str, workspace: &str, runtime: Option<&str>) -> Result<()> {
     let config = Config::load()?;
     if !config.has_auth_token() {
         oops!("not authenticated. Run: `lux auth --token <TOKEN>`");
@@ -25,14 +25,30 @@ pub async fn start(slug: &str) -> Result<()> {
         }
     };
 
+    // resolve workspace to absolute path
+    let workspace_path = std::path::Path::new(workspace);
+    let absolute_workspace = if workspace_path.is_absolute() {
+        workspace_path.to_path_buf()
+    } else {
+        std::env::current_dir()
+            .map_err(|e| color_eyre::eyre::eyre!("cannot get cwd: {}", e))?
+            .join(workspace_path)
+    };
+
+    let workspace_str = absolute_workspace.to_string_lossy().to_string();
+
     let tasks = project.tasks.as_deref().unwrap_or(&[]);
 
     // save to state
     let mut state = ProjectState::load(config.expose_token())?;
-    state.set_active(&project.slug, &project.name, tasks);
+    state.set_active(&project.slug, &project.name, tasks, &workspace_str, runtime);
     state.save(config.expose_token())?;
 
     cheer!("now working on: {}", project.name);
+    say!("  workspace: {}", workspace_str);
+    if let Some(rt) = runtime {
+        say!("    runtime: {}", rt);
+    }
     say!("run `lux tasks` to see available tasks");
 
     Ok(())
@@ -50,9 +66,15 @@ pub fn status() -> Result<()> {
 
     if let Some(project) = state.get_active() {
         say!("active project: {}", project.name);
-        say!("       slug: {}", project.slug);
+        say!("          slug: {}", project.slug);
+        say!("     workspace: {}", project.workspace);
+        if let Some(ref rt) = project.runtime {
+            say!("       runtime: {}", rt);
+        } else {
+            say!("       runtime: not set");
+        }
         say!(
-            "   progress: {}/{} tasks completed",
+            "      progress: {}/{} tasks completed",
             project.completed_count(),
             project.tasks.len()
         );
@@ -85,6 +107,28 @@ pub fn stop() -> Result<()> {
         say!("stopped working on: {}", name);
     } else {
         say!("no active project to stop");
+    }
+
+    Ok(())
+}
+
+/// handle `lux project set --runtime <runtime>`
+pub fn set_runtime(runtime: &str) -> Result<()> {
+    let config = Config::load()?;
+    if !config.has_auth_token() {
+        oops!("not authenticated. Run: `lux auth --token <TOKEN>`");
+        return Ok(());
+    }
+
+    let mut state = ProjectState::load(config.expose_token())?;
+
+    if state.get_active().is_some() {
+        state.set_runtime(runtime);
+        state.save(config.expose_token())?;
+        cheer!("runtime set to: {}", runtime);
+    } else {
+        oops!("no active project");
+        say!("run `lux project start --slug <SLUG>` first");
     }
 
     Ok(())
