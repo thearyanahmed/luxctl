@@ -16,28 +16,28 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Authenticate with your API token
+    /// Log in with your API token from projectlighthouse.io
     Auth {
         #[arg(short = 't', long)]
         token: String,
     },
 
-    /// Show current authenticated user
+    /// See your profile and progress
     Whoami,
 
-    /// Manage projects
+    /// Projects are a series of challenges that build on each other, preparing you for real-world problems
     Project {
         #[command(subcommand)]
         action: ProjectAction,
     },
 
-    /// Manage tasks
+    /// Tasks are individual challenges within a project - tackle them in any order
     Task {
         #[command(subcommand)]
         action: TaskAction,
     },
 
-    /// Run validators for a specific task
+    /// Test your solution to see if it passes
     Run {
         #[arg(short = 'p', long)]
         project: Option<String>,
@@ -49,7 +49,7 @@ enum Commands {
         detailed: bool,
     },
 
-    /// Validate all tasks in active project
+    /// Run all the tasks of a project at once
     Validate {
         #[arg(short = 'd', long)]
         detailed: bool,
@@ -58,7 +58,7 @@ enum Commands {
         all: bool,
     },
 
-    /// Manage hints
+    /// Stuck on a task? Hints can help, but they might cost you XP
     Hint {
         #[command(subcommand)]
         action: HintAction,
@@ -67,14 +67,14 @@ enum Commands {
 
 #[derive(Subcommand)]
 enum ProjectAction {
-    /// List available projects
+    /// See all available projects you can work on
     List,
-    /// Show project details
+    /// Get details about a project before starting
     Show {
         #[arg(short = 's', long)]
         slug: String,
     },
-    /// Start working on a project
+    /// Begin working on a project in your current directory
     Start {
         #[arg(short = 's', long)]
         slug: String,
@@ -83,17 +83,17 @@ enum ProjectAction {
         #[arg(short = 'w', long, default_value = ".")]
         workspace: String,
 
-        /// Runtime environment (go, rust, c, python)
+        /// Runtime environment (go, rust, c)
         #[arg(short = 'r', long)]
         runtime: Option<String>,
     },
-    /// Show active project status
+    /// See your progress on the current project
     Status,
-    /// Stop working on active project
+    /// Stop working on the current project
     Stop,
-    /// Update project settings
+    /// Change project settings (currently: runtime - go, rust, c)
     Set {
-        /// Runtime environment (go, rust, c, python)
+        /// Runtime environment (go, rust, c)
         #[arg(short = 'r', long)]
         runtime: String,
     },
@@ -101,12 +101,12 @@ enum ProjectAction {
 
 #[derive(Subcommand)]
 enum TaskAction {
-    /// List tasks for active project
+    /// See all tasks in your current project
     List {
         #[arg(short = 'r', long)]
         refresh: bool,
     },
-    /// Show task details
+    /// Read the task description and requirements
     Show {
         /// Task number or slug
         #[arg(short = 't', long)]
@@ -120,12 +120,12 @@ enum TaskAction {
 
 #[derive(Subcommand)]
 enum HintAction {
-    /// List hints for a task
+    /// See what hints are available for a task
     List {
         #[arg(short = 't', long)]
         task: String,
     },
-    /// Unlock a hint (deducts points)
+    /// Reveal a hint - this might cost you XP
     Unlock {
         #[arg(short = 't', long)]
         task: String,
