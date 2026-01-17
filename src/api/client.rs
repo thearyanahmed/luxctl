@@ -13,8 +13,8 @@ use super::types::{
 };
 
 pub struct LighthouseAPIClient {
-    pub base_url: String,
-    pub api_version: String,
+    base_url: String,
+    api_version: String,
     env: Env,
     client: Client,
     token: Option<SecretString>,
