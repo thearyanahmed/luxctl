@@ -1,10 +1,54 @@
 use color_eyre::eyre::Result;
 
+use crate::api::Task;
 use crate::api::LighthouseAPIClient;
 use crate::commands::run::run_task_validators;
 use crate::config::Config;
 use crate::state::ProjectState;
 use crate::{oops, say};
+
+/// result of filtering tasks for validation
+#[derive(Debug)]
+pub struct FilteredTasks<'a> {
+    pub to_run: Vec<&'a Task>,
+    pub skipped_completed: usize,
+    pub skipped_locked: usize,
+}
+
+/// filter tasks based on locked status and completion
+/// - locked tasks are always skipped
+/// - completed tasks are skipped unless include_passed is true
+pub fn filter_tasks_for_validation<'a>(
+    tasks: &'a [Task],
+    include_passed: bool,
+) -> FilteredTasks<'a> {
+    let mut to_run = Vec::new();
+    let mut skipped_completed = 0;
+    let mut skipped_locked = 0;
+
+    for task in tasks {
+        let is_completed = task.status == "challenge_completed";
+        let is_locked = task.is_locked;
+
+        if is_locked {
+            skipped_locked += 1;
+            continue;
+        }
+
+        if is_completed && !include_passed {
+            skipped_completed += 1;
+            continue;
+        }
+
+        to_run.push(task);
+    }
+
+    FilteredTasks {
+        to_run,
+        skipped_completed,
+        skipped_locked,
+    }
+}
 
 /// handle `lux validate [--all] [--detailed]`
 pub async fn validate_all(include_passed: bool, detailed: bool) -> Result<()> {
@@ -48,48 +92,29 @@ pub async fn validate_all(include_passed: bool, detailed: bool) -> Result<()> {
     state.save(&token)?;
 
     // filter tasks
-    let mut to_run = Vec::new();
-    let mut skipped_completed = 0;
-    let mut skipped_locked = 0;
-
-    for task in tasks {
-        let is_completed = task.status == "challenge_completed";
-        let is_locked = task.is_locked;
-
-        if is_locked {
-            skipped_locked += 1;
-            continue;
-        }
-
-        if is_completed && !include_passed {
-            skipped_completed += 1;
-            continue;
-        }
-
-        to_run.push(task);
-    }
+    let filtered = filter_tasks_for_validation(tasks, include_passed);
 
     say!("validating tasks for: {}", project.name);
 
-    if skipped_completed > 0 {
+    if filtered.skipped_completed > 0 {
         say!(
             "skipping {} completed task(s). Use --all to include them.",
-            skipped_completed
+            filtered.skipped_completed
         );
     }
 
-    if to_run.is_empty() {
+    if filtered.to_run.is_empty() {
         say!("no tasks to validate");
         return Ok(());
     }
 
     // run each task
-    for (i, task) in to_run.iter().enumerate() {
+    for (i, task) in filtered.to_run.iter().enumerate() {
         println!();
         println!(
             "━━━ Task {}/{}: {} ━━━━━━━━━━━━━━━━━━━━",
             i + 1,
-            to_run.len(),
+            filtered.to_run.len(),
             task.slug
         );
 
@@ -108,13 +133,118 @@ pub async fn validate_all(include_passed: bool, detailed: bool) -> Result<()> {
     println!();
     println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     say!("summary");
-    say!("  ran: {} task(s)", to_run.len());
-    if skipped_completed > 0 {
-        say!("  skipped: {} (completed)", skipped_completed);
+    say!("  ran: {} task(s)", filtered.to_run.len());
+    if filtered.skipped_completed > 0 {
+        say!("  skipped: {} (completed)", filtered.skipped_completed);
     }
-    if skipped_locked > 0 {
-        say!("  skipped: {} (locked)", skipped_locked);
+    if filtered.skipped_locked > 0 {
+        say!("  skipped: {} (locked)", filtered.skipped_locked);
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn make_task(id: i32, slug: &str, status: &str, is_locked: bool) -> Task {
+        Task {
+            id,
+            slug: slug.to_string(),
+            title: format!("Task {}", id),
+            description: "Test task".to_string(),
+            sort_order: id,
+            scores: "10:20:50".to_string(),
+            status: status.to_string(),
+            is_locked,
+            abandoned_deduction: 5,
+            points_earned: 0,
+            hints: vec![],
+            validators: vec![],
+        }
+    }
+
+    #[test]
+    fn test_filter_skips_locked_tasks() {
+        let tasks = vec![
+            make_task(1, "task-1", "challenge_awaits", false),
+            make_task(2, "task-2", "challenge_awaits", true), // locked
+            make_task(3, "task-3", "challenge_awaits", true), // locked
+        ];
+
+        let result = filter_tasks_for_validation(&tasks, false);
+
+        assert_eq!(result.to_run.len(), 1);
+        assert_eq!(result.to_run[0].slug, "task-1");
+        assert_eq!(result.skipped_locked, 2);
+        assert_eq!(result.skipped_completed, 0);
+    }
+
+    #[test]
+    fn test_filter_skips_completed_tasks_by_default() {
+        let tasks = vec![
+            make_task(1, "task-1", "challenge_completed", false),
+            make_task(2, "task-2", "challenge_awaits", false),
+        ];
+
+        let result = filter_tasks_for_validation(&tasks, false);
+
+        assert_eq!(result.to_run.len(), 1);
+        assert_eq!(result.to_run[0].slug, "task-2");
+        assert_eq!(result.skipped_completed, 1);
+    }
+
+    #[test]
+    fn test_filter_includes_completed_when_include_passed_true() {
+        let tasks = vec![
+            make_task(1, "task-1", "challenge_completed", false),
+            make_task(2, "task-2", "challenge_awaits", false),
+        ];
+
+        let result = filter_tasks_for_validation(&tasks, true);
+
+        assert_eq!(result.to_run.len(), 2);
+        assert_eq!(result.skipped_completed, 0);
+    }
+
+    #[test]
+    fn test_filter_locked_takes_priority_over_completed() {
+        // locked task that is also completed should be skipped as locked, not completed
+        let tasks = vec![
+            make_task(1, "task-1", "challenge_completed", true), // locked AND completed
+        ];
+
+        let result = filter_tasks_for_validation(&tasks, false);
+
+        assert_eq!(result.to_run.len(), 0);
+        assert_eq!(result.skipped_locked, 1);
+        assert_eq!(result.skipped_completed, 0); // not counted as completed skip
+    }
+
+    #[test]
+    fn test_filter_empty_tasks() {
+        let tasks: Vec<Task> = vec![];
+
+        let result = filter_tasks_for_validation(&tasks, false);
+
+        assert!(result.to_run.is_empty());
+        assert_eq!(result.skipped_locked, 0);
+        assert_eq!(result.skipped_completed, 0);
+    }
+
+    #[test]
+    fn test_filter_all_unlocked_incomplete() {
+        let tasks = vec![
+            make_task(1, "task-1", "challenge_awaits", false),
+            make_task(2, "task-2", "challenged", false),
+            make_task(3, "task-3", "challenge_failed", false),
+        ];
+
+        let result = filter_tasks_for_validation(&tasks, false);
+
+        assert_eq!(result.to_run.len(), 3);
+        assert_eq!(result.skipped_locked, 0);
+        assert_eq!(result.skipped_completed, 0);
+    }
 }
