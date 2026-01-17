@@ -38,7 +38,7 @@ impl LighthouseAPIClient {
 
     pub fn from_config(config: &Config) -> LighthouseAPIClient {
         LighthouseAPIClient {
-            token: Some(SecretString::from(config.expose_token().to_string())),
+            token: Some(SecretString::from(config.expose_token())),
             ..Default::default()
         }
     }
