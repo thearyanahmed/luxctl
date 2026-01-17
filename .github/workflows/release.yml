@@ -16,6 +16,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    outputs:
+      released: ${{ steps.check_release.outputs.exists == 'false' }}
     steps:
       - name: Validate tag format
         run: |
@@ -97,7 +99,7 @@ jobs:
         run: |
           if [ -n "$SLACK_WEBHOOK_URL" ]; then
             curl -X POST -H 'Content-type: application/json' \
-              --data "{\"text\":\"🚀 lux ${{ inputs.tag }} released to crates.io\"}" \
+              --data "{\"text\":\"🚀 luxctl ${{ inputs.tag }} released to crates.io\"}" \
               "$SLACK_WEBHOOK_URL"
           else
             echo "SLACK_WEBHOOK_URL not set, skipping notification"
@@ -110,6 +112,44 @@ jobs:
         run: |
           if [ -n "$SLACK_WEBHOOK_URL" ]; then
             curl -X POST -H 'Content-type: application/json' \
-              --data "{\"text\":\"❌ lux ${{ inputs.tag }} release failed\"}" \
+              --data "{\"text\":\"❌ luxctl ${{ inputs.tag }} release failed\"}" \
               "$SLACK_WEBHOOK_URL"
           fi
+
+  verify:
+    needs: release
+    if: needs.release.outputs.released == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Wait for crates.io index
+        shell: bash
+        run: sleep 30
+
+      - name: Install luxctl from crates.io
+        shell: bash
+        run: cargo install luxctl
+
+      - name: Verify installed version
+        shell: bash
+        run: |
+          EXPECTED_VERSION="${{ inputs.tag }}"
+          EXPECTED_VERSION="${EXPECTED_VERSION#v}"  # remove 'v' prefix
+
+          INSTALLED_VERSION=$(luxctl --version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+
+          echo "Expected: $EXPECTED_VERSION"
+          echo "Installed: $INSTALLED_VERSION"
+
+          if [ "$INSTALLED_VERSION" != "$EXPECTED_VERSION" ]; then
+            echo "Version mismatch!"
+            exit 1
+          fi
+
+          echo "✓ luxctl $INSTALLED_VERSION installed successfully on ${{ matrix.os }}"
