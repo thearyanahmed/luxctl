@@ -1,3 +1,4 @@
+pub mod doctor;
 pub mod hints;
 pub mod project;
 pub mod run;
