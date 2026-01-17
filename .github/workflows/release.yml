@@ -98,8 +98,41 @@ jobs:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
         run: |
           if [ -n "$SLACK_WEBHOOK_URL" ]; then
+            VERSION="${{ inputs.tag }}"
+            VERSION="${VERSION#v}"  # remove 'v' prefix
+
+            MESSAGE=$(cat <<EOF
+          {
+            "blocks": [
+              {
+                "type": "header",
+                "text": {
+                  "type": "plain_text",
+                  "text": "🚀 luxctl ${{ inputs.tag }} released",
+                  "emoji": true
+                }
+              },
+              {
+                "type": "section",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": "A new version of luxctl has been published to crates.io.\n\n*Upgrade to the latest version:*"
+                }
+              },
+              {
+                "type": "section",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": "• *macOS/Linux:* \`cargo install luxctl --version $VERSION\`\n• *Windows:* \`cargo install luxctl --version $VERSION\`"
+                }
+              }
+            ]
+          }
+          EOF
+            )
+
             curl -X POST -H 'Content-type: application/json' \
-              --data "{\"text\":\"🚀 luxctl ${{ inputs.tag }} released to crates.io\"}" \
+              --data "$MESSAGE" \
               "$SLACK_WEBHOOK_URL"
           else
             echo "SLACK_WEBHOOK_URL not set, skipping notification"
@@ -134,7 +167,10 @@ jobs:
 
       - name: Install luxctl from crates.io
         shell: bash
-        run: cargo install luxctl
+        run: |
+          VERSION="${{ inputs.tag }}"
+          VERSION="${VERSION#v}"  # remove 'v' prefix
+          cargo install luxctl --version "$VERSION"
 
       - name: Verify installed version
         shell: bash
