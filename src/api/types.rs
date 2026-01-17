@@ -8,6 +8,9 @@ pub struct ApiError {
 #[derive(Debug, Deserialize)]
 pub struct HealthCheckResponse {
     pub status: String,
+    pub app: Option<String>,
+    pub version: Option<String>,
+    pub environment: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
