@@ -133,3 +133,47 @@ pub fn set_runtime(runtime: &str) -> Result<()> {
 
     Ok(())
 }
+
+/// handle `lux project set --workspace <path>`
+pub fn set_workspace(workspace: &str) -> Result<()> {
+    let config = Config::load()?;
+    if !config.has_auth_token() {
+        oops!("not authenticated. Run: `lux auth --token <TOKEN>`");
+        return Ok(());
+    }
+
+    let mut state = ProjectState::load(config.expose_token())?;
+
+    if state.get_active().is_none() {
+        oops!("no active project");
+        say!("run `lux project start --slug <SLUG>` first");
+        return Ok(());
+    }
+
+    // resolve to absolute path
+    let workspace_path = std::path::Path::new(workspace);
+    let absolute_workspace = if workspace_path.is_absolute() {
+        workspace_path.to_path_buf()
+    } else {
+        std::env::current_dir()
+            .map_err(|e| color_eyre::eyre::eyre!("cannot get cwd: {}", e))?
+            .join(workspace_path)
+    };
+
+    if !absolute_workspace.exists() {
+        oops!("directory does not exist: {}", absolute_workspace.display());
+        return Ok(());
+    }
+
+    // canonicalize to get clean path without . or ..
+    let canonical = absolute_workspace
+        .canonicalize()
+        .map_err(|e| color_eyre::eyre::eyre!("cannot resolve path: {}", e))?;
+
+    let workspace_str = canonical.to_string_lossy().to_string();
+    state.set_workspace(&workspace_str);
+    state.save(config.expose_token())?;
+    cheer!("workspace set to: {}", workspace_str);
+
+    Ok(())
+}
