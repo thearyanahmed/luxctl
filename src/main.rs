@@ -63,6 +63,9 @@ enum Commands {
         #[command(subcommand)]
         action: HintAction,
     },
+
+    /// Check your environment and diagnose issues
+    Doctor,
 }
 
 #[derive(Subcommand)]
@@ -271,6 +274,10 @@ async fn main() -> Result<()> {
                 commands::hints::unlock(&task, &hint).await?;
             }
         },
+
+        Commands::Doctor => {
+            commands::doctor::run().await?;
+        }
     }
 
     Ok(())
