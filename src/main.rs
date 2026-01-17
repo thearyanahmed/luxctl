@@ -1,13 +1,13 @@
 use clap::{Parser, Subcommand};
 use color_eyre::eyre::Result;
 
-use lux::{
+use luxctl::{
     api::LighthouseAPIClient, auth::TokenAuthenticator, commands, config::Config, greet,
     message::Message, oops, VERSION,
 };
 
 #[derive(Parser)]
-#[command(name = "lux")]
+#[command(name = "luxctl")]
 #[command(version = VERSION)]
 struct Cli {
     #[command(subcommand)]

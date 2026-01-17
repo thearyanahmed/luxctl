@@ -7,4 +7,4 @@ pub mod state;
 pub mod tasks;
 pub mod validators;
 
-pub const VERSION: &str = "0.4.8";
+pub const VERSION: &str = "0.5.0";
