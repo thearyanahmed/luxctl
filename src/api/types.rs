@@ -6,6 +6,11 @@ pub struct ApiError {
 }
 
 #[derive(Debug, Deserialize)]
+pub struct HealthCheckResponse {
+    pub status: String,
+}
+
+#[derive(Debug, Deserialize)]
 pub struct PaginatedResponse<T> {
     pub data: Vec<T>,
     pub links: PaginationLinks,

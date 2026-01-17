@@ -1,4 +1,4 @@
-//! `lux doctor` - diagnose environment and check tool availability
+//! `luxctl doctor` - diagnose environment and check tool availability
 
 use color_eyre::eyre::Result;
 use colored::Colorize;
@@ -73,7 +73,7 @@ impl CheckResult {
 
 /// run all diagnostic checks
 pub async fn run() -> Result<()> {
-    say!("lux doctor v{}\n", VERSION);
+    say!("luxctl doctor v{}\n", VERSION);
 
     // system info
     print_section("System");
@@ -96,7 +96,7 @@ pub async fn run() -> Result<()> {
     check_project_state(&config);
 
     println!();
-    say!("run `lux doctor` after installing missing tools to verify");
+    say!("run `luxctl doctor` after installing missing tools to verify");
 
     Ok(())
 }
@@ -115,13 +115,13 @@ fn check_system_info() {
     // check home directory exists (needed for config storage)
     match dirs::home_dir() {
         Some(home) => {
-            let lux_dir = home.join(".lux");
-            if lux_dir.exists() {
-                CheckResult::ok("config dir", Some(lux_dir.to_string_lossy().to_string())).print();
+            let luxctl_dir = home.join(".luxctl");
+            if luxctl_dir.exists() {
+                CheckResult::ok("config dir", Some(luxctl_dir.to_string_lossy().to_string())).print();
             } else {
                 CheckResult::warning(
                     "config dir",
-                    Some(format!("{} (will be created)", lux_dir.to_string_lossy())),
+                    Some(format!("{} (will be created)", luxctl_dir.to_string_lossy())),
                 )
                 .print();
             }
@@ -145,7 +145,7 @@ fn check_auth() -> Option<Config> {
         Ok(_) => {
             CheckResult::warning(
                 "not logged in",
-                Some("run `lux auth --token <TOKEN>`".into()),
+                Some("run `luxctl auth --token <TOKEN>`".into()),
             )
             .print();
             None
@@ -158,7 +158,29 @@ fn check_auth() -> Option<Config> {
 }
 
 async fn check_network(config: &Option<Config>) {
-    // check if we can reach the API
+    // first check unauthenticated healthcheck endpoint
+    let client = LighthouseAPIClient::default();
+    match client.healthcheck().await {
+        Ok(response) => {
+            CheckResult::ok("healthcheck", Some(response.status)).print();
+        }
+        Err(e) => {
+            let msg = format!("{}", e);
+            if msg.contains("timeout") || msg.contains("connect") {
+                CheckResult::error(
+                    "healthcheck",
+                    Some("could not connect to projectlighthouse.io".into()),
+                )
+                .print();
+            } else {
+                CheckResult::error("healthcheck", Some(msg)).print();
+            }
+            // if healthcheck fails, skip authenticated check
+            return;
+        }
+    }
+
+    // then check authenticated endpoint
     let Some(config) = config else {
         CheckResult::warning("api", Some("skipped (not authenticated)".into())).print();
         return;
@@ -171,15 +193,7 @@ async fn check_network(config: &Option<Config>) {
         }
         Err(e) => {
             let msg = format!("{}", e);
-            if msg.contains("timeout") || msg.contains("connect") {
-                CheckResult::error(
-                    "api",
-                    Some("could not connect to projectlighthouse.io".into()),
-                )
-                .print();
-            } else {
-                CheckResult::error("api", Some(msg)).print();
-            }
+            CheckResult::error("api", Some(msg)).print();
         }
     }
 }
@@ -324,7 +338,7 @@ fn check_project_state(config: &Option<Config>) {
         CheckResult::ok("project", Some("none active".into())).print();
         say!(
             "  {}",
-            "run `lux project start --slug <SLUG>` to begin".dimmed()
+            "run `luxctl project start --slug <SLUG>` to begin".dimmed()
         );
     }
 }
