@@ -78,8 +78,8 @@ jobs:
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
         run: |
-          cargo publish --dry-run
-          cargo publish
+          cargo publish --dry-run --allow-dirty
+          cargo publish --allow-dirty
 
       - name: Create GitHub Release
         if: steps.check_release.outputs.exists == 'false'
