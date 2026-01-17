@@ -37,14 +37,37 @@ impl TokenAuthenticator {
 mod tests {
     use super::*;
 
+    #[test]
+    fn test_new_stores_token() {
+        let auth = TokenAuthenticator::new("my-secret-token");
+        assert_eq!(auth.token, "my-secret-token");
+    }
+
+    #[test]
+    fn test_new_trims_nothing() {
+        // token is stored as-is, no trimming
+        let auth = TokenAuthenticator::new("  token-with-spaces  ");
+        assert_eq!(auth.token, "  token-with-spaces  ");
+    }
+
     #[tokio::test]
-    async fn test_authentication_with_empty_token_should_fail() {
-        let token_authenticator = TokenAuthenticator::new("");
+    async fn test_empty_token_returns_error() {
+        let auth = TokenAuthenticator::new("");
+        let result = auth.authenticate().await;
 
-        let result = token_authenticator.authenticate().await;
         assert!(result.is_err());
+        assert_eq!(result.unwrap_err().to_string(), "token must not be empty.");
+    }
 
-        let error_msg = result.unwrap_err().to_string();
-        assert_eq!(error_msg, "token must not be empty.");
+    #[tokio::test]
+    async fn test_whitespace_only_token_is_not_empty() {
+        // whitespace-only token passes empty check but will fail API call
+        let auth = TokenAuthenticator::new("   ");
+        let result = auth.authenticate().await;
+
+        // should not fail with "empty" error
+        assert!(result.is_err());
+        let err = result.unwrap_err().to_string();
+        assert!(!err.contains("must not be empty"));
     }
 }
