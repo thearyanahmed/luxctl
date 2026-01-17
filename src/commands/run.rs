@@ -1,6 +1,6 @@
 use color_eyre::eyre::Result;
 
-use crate::api::{LighthouseAPIClient, SubmitAttemptRequest, Task, TaskOutcome};
+use crate::api::{LighthouseAPIClient, SubmitAttemptRequest, Task, TaskOutcome, TaskStatus};
 use crate::config::Config;
 use crate::message::Message;
 use crate::state::ProjectState;
@@ -98,7 +98,7 @@ pub async fn run_task_validators(
     state_ctx: Option<(&mut ProjectState, &str)>,
 ) -> Result<()> {
     // check if task already completed
-    let already_passed = task.status == "challenge_completed";
+    let already_passed = task.status.is_completed();
     if already_passed {
         complain!("you've already passed this task");
         say!("running validators anyway for verification...");
@@ -193,9 +193,9 @@ pub async fn run_task_validators(
             // update cached task status if state context provided
             if let Some((state, token)) = state_ctx {
                 let new_status = if response.data.task_outcome == "passed" {
-                    "challenge_completed"
+                    TaskStatus::ChallengeCompleted
                 } else {
-                    "challenged"
+                    TaskStatus::Challenged
                 };
                 state.update_task_status(task.id, new_status);
                 if let Err(e) = state.save(token) {

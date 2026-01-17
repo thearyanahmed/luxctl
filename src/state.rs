@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use sha2::Sha256;
 use std::{fs, path::PathBuf};
 
-use crate::api::Task;
+use crate::api::{Task, TaskStatus};
 
 static CFG_DIR: &str = ".lux";
 static STATE_FILE: &str = "state.json";
@@ -24,7 +24,7 @@ pub struct CachedTask {
     pub points: i32,
     #[serde(default)]
     pub points_earned: i32,
-    pub status: String,
+    pub status: TaskStatus,
     pub sort_order: i32,
     pub validators: Vec<String>,
 }
@@ -47,7 +47,7 @@ impl CachedTask {
             title: task.title.clone(),
             points,
             points_earned: task.points_earned,
-            status: task.status.clone(),
+            status: task.status,
             sort_order: task.sort_order,
             validators: task.validators.clone(),
         }
@@ -83,7 +83,7 @@ impl ActiveProject {
     pub fn completed_count(&self) -> usize {
         self.tasks
             .iter()
-            .filter(|t| t.status == "challenge_completed")
+            .filter(|t| t.status.is_completed())
             .count()
     }
 }
@@ -209,10 +209,10 @@ impl ProjectState {
     }
 
     /// update a single task's status (e.g., after successful submission)
-    pub fn update_task_status(&mut self, task_id: i32, new_status: &str) {
+    pub fn update_task_status(&mut self, task_id: i32, new_status: TaskStatus) {
         if let Some(ref mut project) = self.active_project {
             if let Some(task) = project.tasks.iter_mut().find(|t| t.id == task_id) {
-                task.status = new_status.to_string();
+                task.status = new_status;
             }
         }
     }
@@ -268,7 +268,7 @@ mod tests {
             description: "Description".to_string(),
             sort_order: 1,
             scores: "5:10:50|10:20:35".to_string(),
-            status: "challenge_awaits".to_string(),
+            status: TaskStatus::ChallengeAwaits,
             is_locked: false,
             abandoned_deduction: 5,
             points_earned: 35,
@@ -360,7 +360,7 @@ mod tests {
                     title: "Task 1".to_string(),
                     points: 25,
                     points_earned: 20,
-                    status: "challenge_completed".to_string(),
+                    status: TaskStatus::ChallengeCompleted,
                     sort_order: 1,
                     validators: vec![],
                 },
@@ -370,7 +370,7 @@ mod tests {
                     title: "Task 2".to_string(),
                     points: 50,
                     points_earned: 0,
-                    status: "challenge_awaits".to_string(),
+                    status: TaskStatus::ChallengeAwaits,
                     sort_order: 2,
                     validators: vec![],
                 },

@@ -1,7 +1,7 @@
 use colored::Colorize;
 use termimad::MadSkin;
 
-use crate::api::{PaginatedResponse, Project, Task};
+use crate::api::{PaginatedResponse, Project, Task, TaskStatus};
 use crate::state::ActiveProject;
 use crate::tasks::{TestCase, TestResults};
 
@@ -82,11 +82,10 @@ impl Message {
                 let connector = if is_last { "└" } else { "├" };
                 let line_char = if is_last { " " } else { "│" };
 
-                let is_completed = task.status == "completed" || task.status == "success";
-                let status_marker = if is_completed {
-                    " ✓".green().to_string()
-                } else {
-                    String::new()
+                let status_marker = match task.status {
+                    TaskStatus::ChallengeCompleted => " ✗".green().to_string(),
+                    TaskStatus::ChallengeFailed => " ✗".red().to_string(),
+                    _ => String::new(),
                 };
 
                 println!(
@@ -196,11 +195,13 @@ impl Message {
         );
 
         for (i, task) in project.tasks.iter().enumerate() {
-            let (status, status_color) = match task.status.as_str() {
-                "challenge_completed" => ("✓".to_string(), "green"),
-                "challenge_failed" => ("✗".to_string(), "red"),
-                "challenged" => ("…".to_string(), "yellow"),
-                _ => (" ".to_string(), "white"),
+            let (status, status_color) = match task.status {
+                TaskStatus::ChallengeCompleted => ("✗".to_string(), "green"),
+                TaskStatus::ChallengeFailed => ("✗".to_string(), "red"),
+                TaskStatus::Challenged => ("○".to_string(), "yellow"),
+                TaskStatus::ChallengeAwaits | TaskStatus::ChallengeAbandoned => {
+                    ("○".to_string(), "white")
+                }
             };
 
             let status_display = match status_color {

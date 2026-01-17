@@ -27,7 +27,7 @@ pub fn filter_tasks_for_validation<'a>(
     let mut skipped_locked = 0;
 
     for task in tasks {
-        let is_completed = task.status == "challenge_completed";
+        let is_completed = task.status.is_completed();
         let is_locked = task.is_locked;
 
         if is_locked {
@@ -147,8 +147,9 @@ pub async fn validate_all(include_passed: bool, detailed: bool) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::api::TaskStatus;
 
-    fn make_task(id: i32, slug: &str, status: &str, is_locked: bool) -> Task {
+    fn make_task(id: i32, slug: &str, status: TaskStatus, is_locked: bool) -> Task {
         Task {
             id,
             slug: slug.to_string(),
@@ -156,7 +157,7 @@ mod tests {
             description: "Test task".to_string(),
             sort_order: id,
             scores: "10:20:50".to_string(),
-            status: status.to_string(),
+            status,
             is_locked,
             abandoned_deduction: 5,
             points_earned: 0,
@@ -168,9 +169,9 @@ mod tests {
     #[test]
     fn test_filter_skips_locked_tasks() {
         let tasks = vec![
-            make_task(1, "task-1", "challenge_awaits", false),
-            make_task(2, "task-2", "challenge_awaits", true), // locked
-            make_task(3, "task-3", "challenge_awaits", true), // locked
+            make_task(1, "task-1", TaskStatus::ChallengeAwaits, false),
+            make_task(2, "task-2", TaskStatus::ChallengeAwaits, true), // locked
+            make_task(3, "task-3", TaskStatus::ChallengeAwaits, true), // locked
         ];
 
         let result = filter_tasks_for_validation(&tasks, false);
@@ -184,8 +185,8 @@ mod tests {
     #[test]
     fn test_filter_skips_completed_tasks_by_default() {
         let tasks = vec![
-            make_task(1, "task-1", "challenge_completed", false),
-            make_task(2, "task-2", "challenge_awaits", false),
+            make_task(1, "task-1", TaskStatus::ChallengeCompleted, false),
+            make_task(2, "task-2", TaskStatus::ChallengeAwaits, false),
         ];
 
         let result = filter_tasks_for_validation(&tasks, false);
@@ -198,8 +199,8 @@ mod tests {
     #[test]
     fn test_filter_includes_completed_when_include_passed_true() {
         let tasks = vec![
-            make_task(1, "task-1", "challenge_completed", false),
-            make_task(2, "task-2", "challenge_awaits", false),
+            make_task(1, "task-1", TaskStatus::ChallengeCompleted, false),
+            make_task(2, "task-2", TaskStatus::ChallengeAwaits, false),
         ];
 
         let result = filter_tasks_for_validation(&tasks, true);
@@ -212,7 +213,7 @@ mod tests {
     fn test_filter_locked_takes_priority_over_completed() {
         // locked task that is also completed should be skipped as locked, not completed
         let tasks = vec![
-            make_task(1, "task-1", "challenge_completed", true), // locked AND completed
+            make_task(1, "task-1", TaskStatus::ChallengeCompleted, true), // locked AND completed
         ];
 
         let result = filter_tasks_for_validation(&tasks, false);
@@ -236,9 +237,9 @@ mod tests {
     #[test]
     fn test_filter_all_unlocked_incomplete() {
         let tasks = vec![
-            make_task(1, "task-1", "challenge_awaits", false),
-            make_task(2, "task-2", "challenged", false),
-            make_task(3, "task-3", "challenge_failed", false),
+            make_task(1, "task-1", TaskStatus::ChallengeAwaits, false),
+            make_task(2, "task-2", TaskStatus::Challenged, false),
+            make_task(3, "task-3", TaskStatus::ChallengeFailed, false),
         ];
 
         let result = filter_tasks_for_validation(&tasks, false);

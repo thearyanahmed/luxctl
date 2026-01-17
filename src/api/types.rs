@@ -85,6 +85,23 @@ impl Project {
     }
 }
 
+/// task progress status (matches Laravel TaskStatus enum)
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TaskStatus {
+    ChallengeAwaits,
+    Challenged,
+    ChallengeCompleted,
+    ChallengeFailed,
+    ChallengeAbandoned,
+}
+
+impl TaskStatus {
+    pub fn is_completed(self) -> bool {
+        self == TaskStatus::ChallengeCompleted
+    }
+}
+
 #[derive(Debug, Deserialize)]
 pub struct Task {
     pub id: i32,
@@ -93,7 +110,7 @@ pub struct Task {
     pub description: String,
     pub sort_order: i32,
     pub scores: String,
-    pub status: String,
+    pub status: TaskStatus,
     pub is_locked: bool,
     pub abandoned_deduction: i32,
     pub points_earned: i32,
@@ -319,7 +336,7 @@ mod tests {
         let tasks = project.tasks.unwrap();
         assert_eq!(tasks.len(), 1);
         assert_eq!(tasks[0].title, "Initialize a Repository");
-        assert_eq!(tasks[0].status, "challenge_awaits");
+        assert_eq!(tasks[0].status, TaskStatus::ChallengeAwaits);
         assert_eq!(tasks[0].hints.len(), 1);
         assert_eq!(tasks[0].hints[0].text, "Create the .git directory.");
     }
