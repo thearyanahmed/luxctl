@@ -94,6 +94,7 @@ pub struct Task {
     pub sort_order: i32,
     pub scores: String,
     pub status: String,
+    pub is_locked: bool,
     pub abandoned_deduction: i32,
     pub points_earned: i32,
     pub hints: Vec<Hint>,
@@ -293,6 +294,7 @@ mod tests {
                     "sort_order": 1,
                     "scores": "5:10:50|10:20:35|20:30:20",
                     "status": "challenge_awaits",
+                    "is_locked": false,
                     "abandoned_deduction": 5,
                     "points_earned": 0,
                     "hints": [

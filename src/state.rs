@@ -269,6 +269,7 @@ mod tests {
             sort_order: 1,
             scores: "5:10:50|10:20:35".to_string(),
             status: "challenge_awaits".to_string(),
+            is_locked: false,
             abandoned_deduction: 5,
             points_earned: 35,
             hints: vec![],

@@ -54,8 +54,7 @@ pub async fn validate_all(include_passed: bool, detailed: bool) -> Result<()> {
 
     for task in tasks {
         let is_completed = task.status == "challenge_completed";
-        // TODO: add proper access check when API provides it
-        let is_locked = false;
+        let is_locked = task.is_locked;
 
         if is_locked {
             skipped_locked += 1;
