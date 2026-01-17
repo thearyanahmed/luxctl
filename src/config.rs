@@ -3,7 +3,7 @@ use secrecy::{ExposeSecret, SecretString};
 use std::{collections::HashMap, fs, path::Path, path::PathBuf};
 
 // we'll always use this path.
-static CFG_DIR: &str = ".lux";
+static CFG_DIR: &str = ".luxctl";
 static CFG_FILE: &str = "cfg";
 
 #[derive(Debug)]
@@ -227,6 +227,6 @@ mod tests {
         assert!(path.is_ok());
 
         let path = path.unwrap();
-        assert!(path.ends_with(".lux/cfg"));
+        assert!(path.ends_with(".luxctl/cfg"));
     }
 }

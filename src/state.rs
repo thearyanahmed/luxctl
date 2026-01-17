@@ -7,11 +7,11 @@ use std::{fs, path::PathBuf};
 
 use crate::api::{Task, TaskStatus};
 
-static CFG_DIR: &str = ".lux";
+static CFG_DIR: &str = ".luxctl";
 static STATE_FILE: &str = "state.json";
 
 // salt used for HMAC key derivation (combined with user token)
-static HMAC_SALT: &str = "lux-state-integrity-v1";
+static HMAC_SALT: &str = "luxctl-state-integrity-v1";
 
 type HmacSha256 = Hmac<Sha256>;
 
