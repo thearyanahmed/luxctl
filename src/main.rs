@@ -94,11 +94,15 @@ enum ProjectAction {
     Status,
     /// Stop working on the current project
     Stop,
-    /// Change project settings (currently: runtime - go, rust, c)
+    /// Change project settings (runtime, workspace)
     Set {
         /// Runtime environment (go, rust, c)
         #[arg(short = 'r', long)]
-        runtime: String,
+        runtime: Option<String>,
+
+        /// Workspace directory
+        #[arg(short = 'w', long)]
+        workspace: Option<String>,
     },
 }
 
@@ -240,8 +244,16 @@ async fn main() -> Result<()> {
             ProjectAction::Stop => {
                 commands::project::stop()?;
             }
-            ProjectAction::Set { runtime } => {
-                commands::project::set_runtime(&runtime)?;
+            ProjectAction::Set { runtime, workspace } => {
+                if let Some(ref rt) = runtime {
+                    commands::project::set_runtime(rt)?;
+                }
+                if let Some(ref ws) = workspace {
+                    commands::project::set_workspace(ws)?;
+                }
+                if runtime.is_none() && workspace.is_none() {
+                    oops!("provide --runtime or --workspace to set");
+                }
             }
         },
 
