@@ -2,6 +2,13 @@
 name = "lux"
 version = "0.4.5"
 edition = "2021"
+description = "CLI tool for Project Lighthouse - hands-on systems programming exercises"
+license = "MIT"
+repository = "https://github.com/thearyanahmed/lux"
+homepage = "https://projectlighthouse.io"
+keywords = ["cli", "education", "systems-programming", "exercises"]
+categories = ["command-line-utilities", "development-tools"]
+readme = "README.md"
 
 [dependencies]
 tokio = { version = "1.42", features = ["full"] }
