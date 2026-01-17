@@ -1,7 +1,7 @@
 use color_eyre::eyre::Result;
 
-use crate::api::Task;
 use crate::api::LighthouseAPIClient;
+use crate::api::Task;
 use crate::commands::run::run_task_validators;
 use crate::config::Config;
 use crate::state::ProjectState;
