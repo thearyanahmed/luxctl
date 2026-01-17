@@ -5,6 +5,11 @@ use crate::api::{PaginatedResponse, Project, Task, TaskStatus};
 use crate::state::ActiveProject;
 use crate::tasks::{TestCase, TestResults};
 
+// status symbols for consistent output
+const SYM_PASS: &str = "✓";
+const SYM_FAIL: &str = "✗";
+const SYM_PENDING: &str = "○";
+
 pub struct Message;
 
 impl Message {
@@ -83,8 +88,8 @@ impl Message {
                 let line_char = if is_last { " " } else { "│" };
 
                 let status_marker = match task.status {
-                    TaskStatus::ChallengeCompleted => " ✗".green().to_string(),
-                    TaskStatus::ChallengeFailed => " ✗".red().to_string(),
+                    TaskStatus::ChallengeCompleted => format!(" {}", SYM_FAIL).green().to_string(),
+                    TaskStatus::ChallengeFailed => format!(" {}", SYM_FAIL).red().to_string(),
                     _ => String::new(),
                 };
 
@@ -146,9 +151,9 @@ impl Message {
 
     pub fn print_test_case(test: &TestCase, index: usize) {
         if test.passed() {
-            println!("{} #{} {}", "✓".green(), index + 1, test.name);
+            println!("{} #{} {}", SYM_PASS.green(), index + 1, test.name);
         } else {
-            println!("{} #{} {}", "✗".red(), index + 1, test.name.red());
+            println!("{} #{} {}", SYM_FAIL.red(), index + 1, test.name.red());
 
             if test.message() != test.name {
                 // truncate long error messages for display
@@ -196,11 +201,11 @@ impl Message {
 
         for (i, task) in project.tasks.iter().enumerate() {
             let (status, status_color) = match task.status {
-                TaskStatus::ChallengeCompleted => ("✗".to_string(), "green"),
-                TaskStatus::ChallengeFailed => ("✗".to_string(), "red"),
-                TaskStatus::Challenged => ("○".to_string(), "yellow"),
+                TaskStatus::ChallengeCompleted => (SYM_FAIL.to_string(), "green"),
+                TaskStatus::ChallengeFailed => (SYM_FAIL.to_string(), "red"),
+                TaskStatus::Challenged => (SYM_PENDING.to_string(), "yellow"),
                 TaskStatus::ChallengeAwaits | TaskStatus::ChallengeAbandoned => {
-                    ("○".to_string(), "white")
+                    (SYM_PENDING.to_string(), "white")
                 }
             };
 
