@@ -2,7 +2,7 @@
 name = "lux"
 version = "0.4.5"
 edition = "2021"
-description = "CLI tool for Project Lighthouse - hands-on systems programming exercises"
+description = "CLI tool for projectlighthouse - hands-on systems programming exercises"
 license = "MIT"
 repository = "https://github.com/thearyanahmed/lux"
 homepage = "https://projectlighthouse.io"
