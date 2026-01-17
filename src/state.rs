@@ -190,6 +190,13 @@ impl ProjectState {
         }
     }
 
+    /// update workspace for active project
+    pub fn set_workspace(&mut self, workspace: &str) {
+        if let Some(ref mut project) = self.active_project {
+            project.workspace = workspace.to_string();
+        }
+    }
+
     /// clear active project
     pub fn clear_active(&mut self) {
         self.active_project = None;
