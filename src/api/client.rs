@@ -303,7 +303,8 @@ mod tests {
     where
         F: FnOnce() -> R,
     {
-        let _guard = ENV_LOCK.lock().unwrap();
+        // recover from poisoned mutex - we only care about synchronization, not state
+        let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
 
         // Save original values
         let originals: Vec<_> = vars
