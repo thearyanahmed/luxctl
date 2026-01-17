@@ -250,13 +250,19 @@ impl LighthouseAPIClientBaseURL {
 impl Default for LighthouseAPIClient {
     fn default() -> Self {
         // 1. get the env first from LUX_ENV, it should map to the enum Env::DEV or Env::RELEASE
-        // 2. default to Env::DEV in case of error or if not set
+        // 2. default based on build type: DEV for debug builds, RELEASE for release builds
+        #[cfg(debug_assertions)]
+        let default_env = Env::DEV;
+        #[cfg(not(debug_assertions))]
+        let default_env = Env::RELEASE;
+
         let lux_env = match env::var("LUX_ENV") {
             Ok(val) => match val.to_uppercase().as_str() {
                 "RELEASE" => Env::RELEASE,
-                _ => Env::DEV,
+                "DEV" => Env::DEV,
+                _ => default_env,
             },
-            Err(_) => Env::DEV,
+            Err(_) => default_env,
         };
 
         // 3. get base_url from env var or use default for the environment
@@ -267,7 +273,7 @@ impl Default for LighthouseAPIClient {
                     Ok(url) => url,
                     Err(e) => {
                         log::warn!("invalid LUX_API_BASE_URL: {}. using default.", e);
-                        LighthouseAPIClientBaseURL::default_for_env(Env::DEV)
+                        LighthouseAPIClientBaseURL::default_for_env(lux_env)
                     }
                 }
             }
@@ -584,8 +590,8 @@ mod tests {
             ],
             || {
                 let api = LighthouseAPIClient::default();
-                // localhost not allowed in RELEASE, should fall back to DEV default (per current logic)
-                assert_eq!(api.base_url, "http://localhost:8000");
+                // localhost not allowed in RELEASE, should fall back to RELEASE default
+                assert_eq!(api.base_url, "https://projectlighthouse.io");
             },
         );
     }
