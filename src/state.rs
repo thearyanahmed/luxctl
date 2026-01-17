@@ -183,18 +183,24 @@ impl ProjectState {
         });
     }
 
+    /// apply a mutation to the active project if one exists
+    fn with_active_mut<F>(&mut self, f: F)
+    where
+        F: FnOnce(&mut ActiveProject),
+    {
+        if let Some(ref mut project) = self.active_project {
+            f(project);
+        }
+    }
+
     /// update runtime for active project
     pub fn set_runtime(&mut self, runtime: &str) {
-        if let Some(ref mut project) = self.active_project {
-            project.runtime = Some(runtime.to_string());
-        }
+        self.with_active_mut(|p| p.runtime = Some(runtime.to_string()));
     }
 
     /// update workspace for active project
     pub fn set_workspace(&mut self, workspace: &str) {
-        if let Some(ref mut project) = self.active_project {
-            project.workspace = workspace.to_string();
-        }
+        self.with_active_mut(|p| p.workspace = workspace.to_string());
     }
 
     /// clear active project
@@ -209,19 +215,19 @@ impl ProjectState {
 
     /// update cached tasks (for refresh)
     pub fn refresh_tasks(&mut self, tasks: &[Task]) {
-        if let Some(ref mut project) = self.active_project {
-            project.tasks = tasks.iter().map(CachedTask::from_api_task).collect();
-            project.fetched_at = Utc::now();
-        }
+        self.with_active_mut(|p| {
+            p.tasks = tasks.iter().map(CachedTask::from_api_task).collect();
+            p.fetched_at = Utc::now();
+        });
     }
 
     /// update a single task's status (e.g., after successful submission)
     pub fn update_task_status(&mut self, task_id: i32, new_status: TaskStatus) {
-        if let Some(ref mut project) = self.active_project {
-            if let Some(task) = project.tasks.iter_mut().find(|t| t.id == task_id) {
+        self.with_active_mut(|p| {
+            if let Some(task) = p.tasks.iter_mut().find(|t| t.id == task_id) {
                 task.status = new_status;
             }
-        }
+        });
     }
 
     /// compute HMAC-SHA256 checksum of project data
