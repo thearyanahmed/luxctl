@@ -8,8 +8,8 @@ use std::{collections::HashMap, env};
 use crate::{config::Config, VERSION};
 
 use super::types::{
-    ApiError, ApiUser, HintsResponse, PaginatedResponse, Project, SubmitAttemptRequest,
-    SubmitAttemptResponse, UnlockHintResponse,
+    ApiError, ApiUser, HealthCheckResponse, HintsResponse, PaginatedResponse, Project,
+    SubmitAttemptRequest, SubmitAttemptResponse, UnlockHintResponse,
 };
 
 pub struct LighthouseAPIClient {
@@ -139,6 +139,11 @@ impl LighthouseAPIClient {
 }
 
 impl LighthouseAPIClient {
+    /// unauthenticated healthcheck endpoint
+    pub async fn healthcheck(&self) -> Result<HealthCheckResponse> {
+        self.get::<HealthCheckResponse>("health", None, None).await
+    }
+
     pub async fn me(&self) -> Result<ApiUser> {
         let headers = self.auth_headers()?;
         self.get::<ApiUser>("user", None, Some(headers)).await
@@ -249,14 +254,14 @@ impl LighthouseAPIClientBaseURL {
 
 impl Default for LighthouseAPIClient {
     fn default() -> Self {
-        // 1. get the env first from LUX_ENV, it should map to the enum Env::DEV or Env::RELEASE
+        // 1. get the env first from LUXCTL_ENV, it should map to the enum Env::DEV or Env::RELEASE
         // 2. default based on build type: DEV for debug builds, RELEASE for release builds
         #[cfg(debug_assertions)]
         let default_env = Env::DEV;
         #[cfg(not(debug_assertions))]
         let default_env = Env::RELEASE;
 
-        let lux_env = match env::var("LUX_ENV") {
+        let luxctl_env = match env::var("LUXCTL_ENV") {
             Ok(val) => match val.to_uppercase().as_str() {
                 "RELEASE" => Env::RELEASE,
                 "DEV" => Env::DEV,
@@ -266,23 +271,23 @@ impl Default for LighthouseAPIClient {
         };
 
         // 3. get base_url from env var or use default for the environment
-        let base_url = match env::var("LUX_API_BASE_URL") {
+        let base_url = match env::var("LUXCTL_API_BASE_URL") {
             Ok(val) => {
                 // Validate the URL if provided
-                match LighthouseAPIClientBaseURL::from(&val, lux_env) {
+                match LighthouseAPIClientBaseURL::from(&val, luxctl_env) {
                     Ok(url) => url,
                     Err(e) => {
-                        log::warn!("invalid LUX_API_BASE_URL: {}. using default.", e);
-                        LighthouseAPIClientBaseURL::default_for_env(lux_env)
+                        log::warn!("invalid LUXCTL_API_BASE_URL: {}. using default.", e);
+                        LighthouseAPIClientBaseURL::default_for_env(luxctl_env)
                     }
                 }
             }
-            Err(_) => LighthouseAPIClientBaseURL::default_for_env(lux_env),
+            Err(_) => LighthouseAPIClientBaseURL::default_for_env(luxctl_env),
         };
 
         log::debug!("initiating lighthouse api with {}", base_url.0);
 
-        LighthouseAPIClient::new(base_url, "v1", lux_env, None)
+        LighthouseAPIClient::new(base_url, "v1", luxctl_env, None)
     }
 }
 
@@ -481,7 +486,7 @@ mod tests {
 
     #[test]
     fn test_lighthouse_api_default_no_env_vars() {
-        with_env_vars(&[("LUX_ENV", None), ("LUX_API_BASE_URL", None)], || {
+        with_env_vars(&[("LUXCTL_ENV", None), ("LUXCTL_API_BASE_URL", None)], || {
             let api = LighthouseAPIClient::default();
             // Should default to DEV with localhost
             assert_eq!(api.base_url, "http://localhost:8000");
@@ -492,7 +497,7 @@ mod tests {
     #[test]
     fn test_lighthouse_api_default_release_env() {
         with_env_vars(
-            &[("LUX_ENV", Some("RELEASE")), ("LUX_API_BASE_URL", None)],
+            &[("LUXCTL_ENV", Some("RELEASE")), ("LUXCTL_API_BASE_URL", None)],
             || {
                 let api = LighthouseAPIClient::default();
                 assert_eq!(api.base_url, "https://projectlighthouse.io");
@@ -504,7 +509,7 @@ mod tests {
     #[test]
     fn test_lighthouse_api_default_release_lowercase() {
         with_env_vars(
-            &[("LUX_ENV", Some("release")), ("LUX_API_BASE_URL", None)],
+            &[("LUXCTL_ENV", Some("release")), ("LUXCTL_API_BASE_URL", None)],
             || {
                 let api = LighthouseAPIClient::default();
                 assert_eq!(api.base_url, "https://projectlighthouse.io");
@@ -515,7 +520,7 @@ mod tests {
     #[test]
     fn test_lighthouse_api_default_dev_env_explicit() {
         with_env_vars(
-            &[("LUX_ENV", Some("DEV")), ("LUX_API_BASE_URL", None)],
+            &[("LUXCTL_ENV", Some("DEV")), ("LUXCTL_API_BASE_URL", None)],
             || {
                 let api = LighthouseAPIClient::default();
                 assert_eq!(api.base_url, "http://localhost:8000");
@@ -526,7 +531,7 @@ mod tests {
     #[test]
     fn test_lighthouse_api_default_invalid_env_defaults_to_dev() {
         with_env_vars(
-            &[("LUX_ENV", Some("INVALID")), ("LUX_API_BASE_URL", None)],
+            &[("LUXCTL_ENV", Some("INVALID")), ("LUXCTL_API_BASE_URL", None)],
             || {
                 let api = LighthouseAPIClient::default();
                 // Invalid env should default to DEV
@@ -539,8 +544,8 @@ mod tests {
     fn test_lighthouse_api_default_custom_base_url_dev() {
         with_env_vars(
             &[
-                ("LUX_ENV", Some("DEV")),
-                ("LUX_API_BASE_URL", Some("http://localhost:9000")),
+                ("LUXCTL_ENV", Some("DEV")),
+                ("LUXCTL_API_BASE_URL", Some("http://localhost:9000")),
             ],
             || {
                 let api = LighthouseAPIClient::default();
@@ -553,9 +558,9 @@ mod tests {
     fn test_lighthouse_api_default_custom_base_url_release() {
         with_env_vars(
             &[
-                ("LUX_ENV", Some("RELEASE")),
+                ("LUXCTL_ENV", Some("RELEASE")),
                 (
-                    "LUX_API_BASE_URL",
+                    "LUXCTL_API_BASE_URL",
                     Some("https://staging.projectlighthouse.io"),
                 ),
             ],
@@ -570,8 +575,8 @@ mod tests {
     fn test_lighthouse_api_default_invalid_base_url_falls_back() {
         with_env_vars(
             &[
-                ("LUX_ENV", Some("DEV")),
-                ("LUX_API_BASE_URL", Some("https://invalid.com")),
+                ("LUXCTL_ENV", Some("DEV")),
+                ("LUXCTL_API_BASE_URL", Some("https://invalid.com")),
             ],
             || {
                 let api = LighthouseAPIClient::default();
@@ -585,8 +590,8 @@ mod tests {
     fn test_lighthouse_api_default_invalid_base_url_release_falls_back() {
         with_env_vars(
             &[
-                ("LUX_ENV", Some("RELEASE")),
-                ("LUX_API_BASE_URL", Some("http://localhost:8080")),
+                ("LUXCTL_ENV", Some("RELEASE")),
+                ("LUXCTL_API_BASE_URL", Some("http://localhost:8080")),
             ],
             || {
                 let api = LighthouseAPIClient::default();
@@ -598,7 +603,7 @@ mod tests {
 
     #[test]
     fn test_lighthouse_api_display() {
-        with_env_vars(&[("LUX_ENV", None), ("LUX_API_BASE_URL", None)], || {
+        with_env_vars(&[("LUXCTL_ENV", None), ("LUXCTL_API_BASE_URL", None)], || {
             let api = LighthouseAPIClient::default();
             let display = format!("{}", api);
 
