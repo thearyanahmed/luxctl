@@ -1,12 +1,12 @@
 [package]
 name = "luxctl"
-version = "0.5.4"
+version = "0.5.5"
 edition = "2021"
 description = "Learn by building - CLI for projectlighthouse.io"
 license = "MIT"
 repository = "https://github.com/thearyanahmed/luxctl"
 homepage = "https://projectlighthouse.io"
-keywords = ["cli", "education", "production-engineering", "exercises"]
+keywords = ["cli", "education", "engineering", "exercises"]
 categories = ["command-line-utilities", "development-tools"]
 readme = "README.md"
 
