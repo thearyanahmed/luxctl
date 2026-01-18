@@ -53,7 +53,10 @@ fn check_system_info() {
             } else {
                 UI::warn(
                     "config dir",
-                    Some(&format!("{} (will be created)", luxctl_dir.to_string_lossy())),
+                    Some(&format!(
+                        "{} (will be created)",
+                        luxctl_dir.to_string_lossy()
+                    )),
                 );
             }
         }
@@ -137,8 +140,6 @@ fn check_dev_tools() {
         ToolCheck::new("go", &["version"], false),
         ToolCheck::new("cargo", &["--version"], false),
         ToolCheck::new("rustc", &["--version"], false),
-        ToolCheck::new("gcc", &["--version"], false),
-        ToolCheck::new("make", &["--version"], false),
         ToolCheck::new("docker", &["--version"], false),
     ];
 
@@ -147,7 +148,7 @@ fn check_dev_tools() {
     }
 
     UI::blank();
-    UI::note("note: only install tools needed for your chosen runtime");
+    UI::note("supported runtimes: go, rust");
 }
 
 struct ToolCheck {
@@ -228,7 +229,10 @@ fn check_project_state(config: &Option<Config>) {
         if workspace_path.exists() {
             UI::ok("workspace", Some(&project.workspace));
         } else {
-            UI::error("workspace", Some(&format!("{} (not found)", project.workspace)));
+            UI::error(
+                "workspace",
+                Some(&format!("{} (not found)", project.workspace)),
+            );
         }
 
         if let Some(rt) = &project.runtime {
@@ -275,12 +279,6 @@ mod tests {
     fn test_extract_version_docker() {
         let output = b"Docker version 24.0.7, build abcd123";
         assert_eq!(extract_version(output), Some("24.0.7".to_string()));
-    }
-
-    #[test]
-    fn test_extract_version_make() {
-        let output = b"GNU Make 3.81";
-        assert_eq!(extract_version(output), Some("3.81".to_string()));
     }
 
     #[test]

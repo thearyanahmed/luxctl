@@ -9,7 +9,10 @@ use crate::ui::UI;
 pub async fn start(slug: &str, workspace: &str, runtime: Option<&str>) -> Result<()> {
     let config = Config::load()?;
     if !config.has_auth_token() {
-        UI::error("not authenticated", Some("run `luxctl auth --token $token`"));
+        UI::error(
+            "not authenticated",
+            Some("run `luxctl auth --token $token`"),
+        );
         return Ok(());
     }
 
@@ -18,7 +21,10 @@ pub async fn start(slug: &str, workspace: &str, runtime: Option<&str>) -> Result
     let project = match client.project_by_slug(slug).await {
         Ok(p) => p,
         Err(err) => {
-            UI::error(&format!("project '{}' not found", slug), Some(&format!("{}", err)));
+            UI::error(
+                &format!("project '{}' not found", slug),
+                Some(&format!("{}", err)),
+            );
             UI::note("run `luxctl projects` to see available projects");
             return Ok(());
         }
@@ -55,7 +61,10 @@ pub async fn start(slug: &str, workspace: &str, runtime: Option<&str>) -> Result
 pub fn status() -> Result<()> {
     let config = Config::load()?;
     if !config.has_auth_token() {
-        UI::error("not authenticated", Some("run `luxctl auth --token $token`"));
+        UI::error(
+            "not authenticated",
+            Some("run `luxctl auth --token $token`"),
+        );
         return Ok(());
     }
 
@@ -72,7 +81,11 @@ pub fn status() -> Result<()> {
         }
         UI::kv_aligned(
             "progress",
-            &format!("{}/{} tasks completed", project.completed_count(), project.tasks.len()),
+            &format!(
+                "{}/{} tasks completed",
+                project.completed_count(),
+                project.tasks.len()
+            ),
             14,
         );
         UI::note("run `luxctl tasks` for task list");
@@ -88,7 +101,10 @@ pub fn status() -> Result<()> {
 pub fn stop() -> Result<()> {
     let config = Config::load()?;
     if !config.has_auth_token() {
-        UI::error("not authenticated", Some("run `luxctl auth --token $token`"));
+        UI::error(
+            "not authenticated",
+            Some("run `luxctl auth --token $token`"),
+        );
         return Ok(());
     }
 
@@ -113,7 +129,10 @@ pub fn stop() -> Result<()> {
 pub fn set_runtime(runtime: &str) -> Result<()> {
     let config = Config::load()?;
     if !config.has_auth_token() {
-        UI::error("not authenticated", Some("run `luxctl auth --token $token`"));
+        UI::error(
+            "not authenticated",
+            Some("run `luxctl auth --token $token`"),
+        );
         return Ok(());
     }
 
@@ -135,7 +154,10 @@ pub fn set_runtime(runtime: &str) -> Result<()> {
 pub fn set_workspace(workspace: &str) -> Result<()> {
     let config = Config::load()?;
     if !config.has_auth_token() {
-        UI::error("not authenticated", Some("run `luxctl auth --token $token`"));
+        UI::error(
+            "not authenticated",
+            Some("run `luxctl auth --token $token`"),
+        );
         return Ok(());
     }
 

@@ -9,7 +9,10 @@ use crate::ui::UI;
 pub async fn list(task_slug: &str) -> Result<()> {
     let config = Config::load()?;
     if !config.has_auth_token() {
-        UI::error("not authenticated", Some("run `luxctl auth --token $token`"));
+        UI::error(
+            "not authenticated",
+            Some("run `luxctl auth --token $token`"),
+        );
         return Ok(());
     }
 
@@ -37,7 +40,10 @@ pub async fn list(task_slug: &str) -> Result<()> {
                 UI::status_unlocked(i + 1, text, hint.points_deduction);
             }
         } else if hint.is_available {
-            let cmd = format!("luxctl hint unlock --task {} --hint {}", task_slug, hint.uuid);
+            let cmd = format!(
+                "luxctl hint unlock --task {} --hint {}",
+                task_slug, hint.uuid
+            );
             UI::status_available(i + 1, hint.points_deduction, &cmd);
         } else {
             UI::status_locked(i + 1, hint.points_deduction);
@@ -52,7 +58,10 @@ pub async fn list(task_slug: &str) -> Result<()> {
 pub async fn unlock(task_slug: &str, hint_uuid: &str) -> Result<()> {
     let config = Config::load()?;
     if !config.has_auth_token() {
-        UI::error("not authenticated", Some("run `luxctl auth --token $token`"));
+        UI::error(
+            "not authenticated",
+            Some("run `luxctl auth --token $token`"),
+        );
         return Ok(());
     }
 

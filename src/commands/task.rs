@@ -10,7 +10,10 @@ use crate::ui::UI;
 pub async fn show(task_id: &str, detailed: bool) -> Result<()> {
     let config = Config::load()?;
     if !config.has_auth_token() {
-        UI::error("not authenticated", Some("run `luxctl auth --token $token`"));
+        UI::error(
+            "not authenticated",
+            Some("run `luxctl auth --token $token`"),
+        );
         return Ok(());
     }
 

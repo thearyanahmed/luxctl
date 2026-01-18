@@ -1,4 +1,5 @@
 use crate::config::Config;
+use crate::runtime::SupportedRuntime;
 use crate::state::ProjectState;
 use crate::tasks::TestCase;
 use std::path::{Path, PathBuf};
@@ -85,102 +86,44 @@ fn detect_build_command(
     runtime: Option<&str>,
     workspace: &Path,
 ) -> Result<(String, Vec<String>), String> {
-    // if runtime is explicitly set, use it
+    // if runtime is explicitly set, parse and use it
     if let Some(rt) = runtime {
-        return match rt.to_lowercase().as_str() {
-            "go" => {
-                // check if there are any .go files
-                let has_go_files = std::fs::read_dir(workspace)
-                    .map(|entries| {
-                        entries
-                            .filter_map(|e| e.ok())
-                            .any(|e| e.path().extension().map(|ext| ext == "go").unwrap_or(false))
-                    })
-                    .unwrap_or(false);
-
-                if !has_go_files {
-                    return Err("no .go source files found in project directory".to_string());
-                }
-                Ok(("go".to_string(), vec!["build".to_string(), ".".to_string()]))
-            }
-            "rust" => Ok(("cargo".to_string(), vec!["check".to_string()])),
-            "c" | "cpp" | "c++" => Ok(("make".to_string(), vec![])),
-            "python" | "py" => Ok((
-                "python".to_string(),
-                vec![
-                    "-m".to_string(),
-                    "py_compile".to_string(),
-                    "*.py".to_string(),
-                ],
-            )),
-            _ => Err(format!("unsupported runtime: {}", rt)),
-        };
+        let supported: SupportedRuntime = rt.parse()?;
+        return get_build_command_for_runtime(supported, workspace);
     }
 
     // auto-detect based on project files
-    // rust/cargo
-    if workspace.join("Cargo.toml").exists() {
-        return Ok(("cargo".to_string(), vec!["check".to_string()]));
-    }
+    let detected = SupportedRuntime::detect(workspace).ok_or_else(|| {
+        format!(
+            "unable to detect project type. expected {} in workspace",
+            SupportedRuntime::all()
+                .iter()
+                .map(|r| r.module_file())
+                .collect::<Vec<_>>()
+                .join(" or ")
+        )
+    })?;
 
-    // go
-    if workspace.join("go.mod").exists() {
-        // check if there are any .go files
-        let has_go_files = std::fs::read_dir(workspace)
-            .map(|entries| {
-                entries
-                    .filter_map(|e| e.ok())
-                    .any(|e| e.path().extension().map(|ext| ext == "go").unwrap_or(false))
-            })
-            .unwrap_or(false);
+    get_build_command_for_runtime(detected, workspace)
+}
 
-        if !has_go_files {
-            return Err("no .go source files found in project directory".to_string());
-        }
-
-        return Ok(("go".to_string(), vec!["build".to_string(), ".".to_string()]));
-    }
-
-    // node/typescript
-    if workspace.join("package.json").exists() {
-        // check for typescript
-        if workspace.join("tsconfig.json").exists() {
-            return Ok((
-                "npx".to_string(),
-                vec!["tsc".to_string(), "--noEmit".to_string()],
-            ));
-        }
-        // plain js has no compile step, treat as success
-        return Ok((
-            "echo".to_string(),
-            vec!["no compile step for js".to_string()],
+/// get build command for a specific runtime, validating source files exist
+fn get_build_command_for_runtime(
+    runtime: SupportedRuntime,
+    workspace: &Path,
+) -> Result<(String, Vec<String>), String> {
+    // for Go, verify source files exist (Rust's cargo check handles this)
+    if runtime == SupportedRuntime::Go && !runtime.has_source_files(workspace) {
+        return Err(format!(
+            "no .{} source files found in project directory",
+            runtime.extension()
         ));
     }
 
-    // python (syntax check)
-    if workspace.join("requirements.txt").exists()
-        || workspace.join("pyproject.toml").exists()
-        || workspace.join("setup.py").exists()
-    {
-        return Ok((
-            "python".to_string(),
-            vec![
-                "-m".to_string(),
-                "py_compile".to_string(),
-                "*.py".to_string(),
-            ],
-        ));
-    }
-
-    // c/c++ with makefile
-    if workspace.join("Makefile").exists() || workspace.join("makefile").exists() {
-        return Ok(("make".to_string(), vec!["-n".to_string()])); // dry run
-    }
-
-    Err(
-        "unable to detect project type. expected Cargo.toml, go.mod, package.json, or Makefile"
-            .to_string(),
-    )
+    Ok((
+        runtime.build_command().to_string(),
+        runtime.build_args().iter().map(|s| s.to_string()).collect(),
+    ))
 }
 
 #[cfg(test)]
@@ -190,15 +133,14 @@ mod tests {
 
     #[test]
     fn test_detect_build_command_error_when_no_project() {
-        // in test environment, may not have project files
-        // just verify function doesn't panic
         let workspace = PathBuf::from("/tmp/nonexistent");
-        let _ = detect_build_command(None, &workspace);
+        let result = detect_build_command(None, &workspace);
+        assert!(result.is_err());
     }
 
     #[test]
     fn test_detect_build_command_with_runtime() {
-        // test explicit runtime selection (rust doesn't need files to exist)
+        // rust doesn't need files to exist for cargo check
         let workspace = PathBuf::from("/tmp");
         let result = detect_build_command(Some("rust"), &workspace);
         assert!(result.is_ok());
@@ -210,7 +152,8 @@ mod tests {
     #[test]
     fn test_detect_build_command_unsupported_runtime() {
         let workspace = PathBuf::from("/tmp");
-        let result = detect_build_command(Some("unknown"), &workspace);
+        let result = detect_build_command(Some("python"), &workspace);
         assert!(result.is_err());
+        assert!(result.unwrap_err().contains("unsupported runtime"));
     }
 }

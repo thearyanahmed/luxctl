@@ -142,7 +142,13 @@ impl UI {
     /// print success item: "✓ name  detail"
     pub fn ok(name: &str, detail: Option<&str>) {
         match detail {
-            Some(d) => println!("{}{} {}  {}", INDENT, SYM_PASS.green(), name.green(), d.dimmed()),
+            Some(d) => println!(
+                "{}{} {}  {}",
+                INDENT,
+                SYM_PASS.green(),
+                name.green(),
+                d.dimmed()
+            ),
             None => println!("{}{} {}", INDENT, SYM_PASS.green(), name.green()),
         }
     }
@@ -166,7 +172,13 @@ impl UI {
     /// print error item: "✗ name  detail"
     pub fn error(name: &str, detail: Option<&str>) {
         match detail {
-            Some(d) => println!("{}{} {}  {}", INDENT, SYM_FAIL.red(), name.red(), d.dimmed()),
+            Some(d) => println!(
+                "{}{} {}  {}",
+                INDENT,
+                SYM_FAIL.red(),
+                name.red(),
+                d.dimmed()
+            ),
             None => println!("{}{} {}", INDENT, SYM_FAIL.red(), name.red()),
         }
     }
@@ -214,7 +226,13 @@ impl UI {
 
     /// print key-value pair with right-aligned key (for status displays)
     pub fn kv_aligned(key: &str, value: &str, width: usize) {
-        println!("{}{:>width$}: {}", INDENT, key.dimmed(), value, width = width);
+        println!(
+            "{}{:>width$}: {}",
+            INDENT,
+            key.dimmed(),
+            value,
+            width = width
+        );
     }
 
     /// print labeled status (like [UNLOCKED], [AVAILABLE])

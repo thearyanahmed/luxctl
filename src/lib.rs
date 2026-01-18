@@ -3,9 +3,10 @@ pub mod auth;
 pub mod commands;
 pub mod config;
 pub mod message;
+pub mod runtime;
 pub mod state;
 pub mod tasks;
 pub mod ui;
 pub mod validators;
 
-pub const VERSION: &str = "0.6.0";
+pub const VERSION: &str = "0.6.1";
