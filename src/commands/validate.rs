@@ -5,6 +5,7 @@ use crate::api::Task;
 use crate::commands::run::run_task_validators;
 use crate::config::Config;
 use crate::state::ProjectState;
+use crate::ui::RunUI;
 use crate::{oops, say};
 
 /// result of filtering tasks for validation
@@ -108,15 +109,13 @@ pub async fn validate_all(include_passed: bool, detailed: bool) -> Result<()> {
         return Ok(());
     }
 
+    let total_tasks = filtered.to_run.len();
+
     // run each task
     for (i, task) in filtered.to_run.iter().enumerate() {
+        let ui = RunUI::new(&task.slug, task.validators.len());
         println!();
-        println!(
-            "━━━ Task {}/{}: {} ━━━━━━━━━━━━━━━━━━━━",
-            i + 1,
-            filtered.to_run.len(),
-            task.slug
-        );
+        ui.task_separator(i + 1, total_tasks, &task.slug);
 
         // run validators and submit results (pass state for auto-refresh)
         run_task_validators(
@@ -131,14 +130,14 @@ pub async fn validate_all(include_passed: bool, detailed: bool) -> Result<()> {
 
     // print summary
     println!();
-    println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-    say!("summary");
-    say!("  ran: {} task(s)", filtered.to_run.len());
+    println!("  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    say!("  summary");
+    say!("    ran: {} task(s)", filtered.to_run.len());
     if filtered.skipped_completed > 0 {
-        say!("  skipped: {} (completed)", filtered.skipped_completed);
+        say!("    skipped: {} (completed)", filtered.skipped_completed);
     }
     if filtered.skipped_locked > 0 {
-        say!("  skipped: {} (locked)", filtered.skipped_locked);
+        say!("    skipped: {} (locked)", filtered.skipped_locked);
     }
 
     Ok(())

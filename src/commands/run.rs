@@ -2,11 +2,11 @@ use color_eyre::eyre::Result;
 
 use crate::api::{LighthouseAPIClient, SubmitAttemptRequest, Task, TaskOutcome, TaskStatus};
 use crate::config::Config;
-use crate::message::Message;
 use crate::state::ProjectState;
 use crate::tasks::{TestCase, TestResults};
+use crate::ui::RunUI;
 use crate::validators::create_validator;
-use crate::{cheer, complain, oops, say};
+use crate::{complain, oops, say};
 
 /// handle `luxctlrun --task <slug|number> [--project <slug>]`
 /// task can be specified by slug or by number (1, 01, 2, 02, etc.)
@@ -94,9 +94,11 @@ pub async fn run_task_validators(
     client: &LighthouseAPIClient,
     project_slug: &str,
     task: &Task,
-    detailed: bool,
+    _detailed: bool,
     state_ctx: Option<(&mut ProjectState, &str)>,
 ) -> Result<()> {
+    let ui = RunUI::new(&task.slug, task.validators.len());
+
     // check if task already completed
     let already_passed = task.status.is_completed();
     if already_passed {
@@ -104,20 +106,21 @@ pub async fn run_task_validators(
         say!("running validators anyway for verification...");
     }
 
-    // print task info
-    Message::print_task_header(task, detailed);
+    ui.header();
+    ui.blank_line();
 
     // run validators
     if task.validators.is_empty() {
-        say!("no validators defined for this task");
+        ui.step("no validators defined for this task");
         return Ok(());
     }
 
-    Message::print_validators_start(task.validators.len());
+    ui.step(&format!("Running {} validators...", task.validators.len()));
+    ui.blank_line();
 
     let mut results = TestResults::new();
 
-    for (i, validator_str) in task.validators.iter().enumerate() {
+    for validator_str in task.validators.iter() {
         log::debug!("parsing validator: {}", validator_str);
 
         let validator = match create_validator(validator_str) {
@@ -130,22 +133,42 @@ pub async fn run_task_validators(
 
         match validator.validate().await {
             Ok(test_case) => {
-                Message::print_test_case(&test_case, i);
+                if test_case.passed() {
+                    ui.test_pass(&test_case.name);
+                } else {
+                    let detail = if test_case.message() != test_case.name {
+                        Some(test_case.message())
+                    } else {
+                        None
+                    };
+                    ui.test_fail(&test_case.name, detail);
+                }
                 results.add(test_case);
             }
             Err(err) => {
-                // record as failed test case with error as the name
+                ui.test_fail(&err, None);
                 let failed_case = TestCase {
                     name: err.clone(),
                     result: Err(err),
                 };
-                Message::print_test_case(&failed_case, i);
                 results.add(failed_case);
             }
         }
     }
 
-    Message::print_test_results(&results);
+    ui.blank_line();
+    if results.all_passed() {
+        ui.summary_pass(results.total());
+    } else {
+        ui.summary_fail(results.passed(), results.total());
+
+        // show hints from task if available
+        if !task.hints.is_empty() {
+            for hint in &task.hints {
+                ui.hint(&hint.text);
+            }
+        }
+    }
 
     // report results back to API
     let outcome = if results.all_passed() {
@@ -187,7 +210,7 @@ pub async fn run_task_validators(
             if response.data.is_reattempt {
                 log::debug!("re-attempt recorded (no additional points)");
             } else if response.data.task_outcome == "passed" {
-                cheer!("task completed! +{} points", response.data.points_achieved);
+                ui.points_earned(response.data.points_achieved);
             }
 
             // update cached task status if state context provided
