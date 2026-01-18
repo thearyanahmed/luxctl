@@ -4,13 +4,13 @@ use crate::api::LighthouseAPIClient;
 use crate::config::Config;
 use crate::message::Message;
 use crate::state::ProjectState;
-use crate::{oops, say};
+use crate::ui::UI;
 
-/// handle `luxctltasks [--refresh]`
+/// handle `luxctl tasks [--refresh]`
 pub async fn list(refresh: bool) -> Result<()> {
     let config = Config::load()?;
     if !config.has_auth_token() {
-        oops!("not authenticated. Run: `luxctl auth --token $token`");
+        UI::error("not authenticated", Some("run `luxctl auth --token $token`"));
         return Ok(());
     }
 
@@ -19,8 +19,8 @@ pub async fn list(refresh: bool) -> Result<()> {
     let project = if let Some(p) = state.get_active() {
         p.clone()
     } else {
-        oops!("no active project");
-        say!("run `luxctlproject start --slug <SLUG>` first");
+        UI::error("no active project", None);
+        UI::note("run `luxctl project start --slug <SLUG>` first");
         return Ok(());
     };
 
@@ -31,7 +31,10 @@ pub async fn list(refresh: bool) -> Result<()> {
         let fresh_project = match client.project_by_slug(&project.slug).await {
             Ok(p) => p,
             Err(err) => {
-                oops!("failed to fetch project: {}", err);
+                UI::error(
+                    &format!("failed to fetch project '{}'", project.slug),
+                    Some(&format!("{}", err)),
+                );
                 return Ok(());
             }
         };

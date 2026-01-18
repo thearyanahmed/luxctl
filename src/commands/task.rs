@@ -4,52 +4,50 @@ use crate::api::LighthouseAPIClient;
 use crate::config::Config;
 use crate::message::Message;
 use crate::state::ProjectState;
-use crate::{oops, say};
+use crate::ui::UI;
 
-/// handle `luxctltask --task <slug|number> [--detailed]`
+/// handle `luxctl task --task <slug|number> [--detailed]`
 pub async fn show(task_id: &str, detailed: bool) -> Result<()> {
     let config = Config::load()?;
     if !config.has_auth_token() {
-        oops!("not authenticated. Run: `luxctl auth --token $token`");
+        UI::error("not authenticated", Some("run `luxctl auth --token $token`"));
         return Ok(());
     }
 
     let state = ProjectState::load(config.expose_token())?;
     let client = LighthouseAPIClient::from_config(&config);
 
-    // get project slug from active project
     let project_slug = if let Some(p) = state.get_active() {
         p.slug.clone()
     } else {
-        oops!("no active project");
-        say!("run `luxctlproject start --slug <SLUG>` first");
+        UI::error("no active project", None);
+        UI::note("run `luxctl project start --slug <SLUG>` first");
         return Ok(());
     };
 
-    // fetch project with tasks
     let project_data = match client.project_by_slug(&project_slug).await {
         Ok(p) => p,
         Err(err) => {
-            oops!("failed to fetch project '{}': {}", project_slug, err);
+            UI::error(
+                &format!("failed to fetch project '{}'", project_slug),
+                Some(&format!("{}", err)),
+            );
             return Ok(());
         }
     };
 
-    // get tasks list
     let tasks = if let Some(t) = &project_data.tasks {
         t
     } else {
-        oops!("project '{}' has no tasks", project_slug);
+        UI::error(&format!("project '{}' has no tasks", project_slug), None);
         return Ok(());
     };
 
-    // find task by number or slug
     let task_data = if let Ok(task_num) = task_id.parse::<usize>() {
         if task_num == 0 || task_num > tasks.len() {
-            oops!(
-                "task #{} not found. valid range: 1-{}",
-                task_num,
-                tasks.len()
+            UI::error(
+                &format!("task #{} not found", task_num),
+                Some(&format!("valid range: 1-{}", tasks.len())),
             );
             return Ok(());
         }
@@ -57,7 +55,10 @@ pub async fn show(task_id: &str, detailed: bool) -> Result<()> {
     } else if let Some(t) = tasks.iter().find(|t| t.slug == task_id) {
         t
     } else {
-        oops!("task '{}' not found in project '{}'", task_id, project_slug);
+        UI::error(
+            &format!("task '{}' not found in project '{}'", task_id, project_slug),
+            None,
+        );
         return Ok(());
     };
 

@@ -5,6 +5,8 @@ use crate::VERSION;
 const SYM_STEP: &str = "▸";
 const SYM_PASS: &str = "✓";
 const SYM_FAIL: &str = "✗";
+const SYM_WARN: &str = "!";
+const SYM_SKIP: &str = "○";
 const INDENT: &str = "  ";
 
 /// UI output for running validators, matching HeroTerminal visual style
@@ -114,5 +116,143 @@ impl RunUI {
     /// accessor for validator count
     pub fn validator_count(&self) -> usize {
         self.total_validators
+    }
+}
+
+/// General-purpose UI output functions (no instance needed)
+pub struct UI;
+
+impl UI {
+    /// print version header
+    pub fn header() {
+        println!("{}projectlighthouse CLI v{}", INDENT, VERSION.dimmed());
+    }
+
+    /// print a section header
+    pub fn section(name: &str) {
+        println!();
+        println!("{}{}", INDENT, name.bold());
+    }
+
+    /// print progress step: "▸ message..."
+    pub fn step(msg: &str) {
+        println!("{}{} {}", INDENT, SYM_STEP.blue(), msg);
+    }
+
+    /// print success item: "✓ name  detail"
+    pub fn ok(name: &str, detail: Option<&str>) {
+        match detail {
+            Some(d) => println!("{}{} {}  {}", INDENT, SYM_PASS.green(), name.green(), d.dimmed()),
+            None => println!("{}{} {}", INDENT, SYM_PASS.green(), name.green()),
+        }
+    }
+
+    /// print warning item: "! name  detail"
+    pub fn warn(name: &str, detail: Option<&str>) {
+        match detail {
+            Some(d) => {
+                println!(
+                    "{}{} {}  {}",
+                    INDENT,
+                    SYM_WARN.yellow(),
+                    name.yellow(),
+                    d.dimmed()
+                )
+            }
+            None => println!("{}{} {}", INDENT, SYM_WARN.yellow(), name.yellow()),
+        }
+    }
+
+    /// print error item: "✗ name  detail"
+    pub fn error(name: &str, detail: Option<&str>) {
+        match detail {
+            Some(d) => println!("{}{} {}  {}", INDENT, SYM_FAIL.red(), name.red(), d.dimmed()),
+            None => println!("{}{} {}", INDENT, SYM_FAIL.red(), name.red()),
+        }
+    }
+
+    /// print skipped/not installed item: "○ name"
+    pub fn skip(name: &str, detail: Option<&str>) {
+        match detail {
+            Some(d) => {
+                println!(
+                    "{}{} {}  {}",
+                    INDENT,
+                    SYM_SKIP.dimmed(),
+                    name.dimmed(),
+                    d.dimmed()
+                )
+            }
+            None => println!("{}{} {}", INDENT, SYM_SKIP.dimmed(), name.dimmed()),
+        }
+    }
+
+    /// print info line with indent
+    pub fn info(msg: &str) {
+        println!("{}{}", INDENT, msg);
+    }
+
+    /// print dimmed info line
+    pub fn note(msg: &str) {
+        println!("{}{}", INDENT, msg.dimmed());
+    }
+
+    /// print success message
+    pub fn success(msg: &str) {
+        println!("{}{} {}", INDENT, SYM_PASS.green(), msg.green());
+    }
+
+    /// blank line
+    pub fn blank() {
+        println!();
+    }
+
+    /// print key-value pair with alignment
+    pub fn kv(key: &str, value: &str) {
+        println!("{}{}: {}", INDENT, key.dimmed(), value);
+    }
+
+    /// print key-value pair with right-aligned key (for status displays)
+    pub fn kv_aligned(key: &str, value: &str, width: usize) {
+        println!("{}{:>width$}: {}", INDENT, key.dimmed(), value, width = width);
+    }
+
+    /// print labeled status (like [UNLOCKED], [AVAILABLE])
+    pub fn status_unlocked(index: usize, text: &str, cost: i32) {
+        println!(
+            "{}#{} {} {}",
+            INDENT,
+            index.to_string().dimmed(),
+            "unlocked".green(),
+            format!("-{} XP", cost).dimmed()
+        );
+        println!("{}    {}", INDENT, text);
+    }
+
+    pub fn status_available(index: usize, cost: i32, unlock_cmd: &str) {
+        println!(
+            "{}#{} {} {}",
+            INDENT,
+            index.to_string().dimmed(),
+            "available".yellow(),
+            format!("-{} XP", cost).dimmed()
+        );
+        println!("{}    {} {}", INDENT, "unlock:".dimmed(), unlock_cmd);
+    }
+
+    pub fn status_locked(index: usize, cost: i32) {
+        println!(
+            "{}#{} {} {}",
+            INDENT,
+            index.to_string().dimmed(),
+            "locked".dimmed(),
+            format!("-{} XP", cost).dimmed()
+        );
+        println!("{}    {}", INDENT, "not yet available".dimmed());
+    }
+
+    /// print separator line
+    pub fn separator() {
+        println!("{}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━", INDENT);
     }
 }

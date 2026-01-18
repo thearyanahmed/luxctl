@@ -1,233 +1,137 @@
 //! `luxctl doctor` - diagnose environment and check tool availability
 
 use color_eyre::eyre::Result;
-use colored::Colorize;
 use std::process::Command;
 
 use crate::api::LighthouseAPIClient;
 use crate::config::Config;
 use crate::state::ProjectState;
-use crate::{say, VERSION};
-
-/// check result for a single diagnostic
-struct CheckResult {
-    name: String,
-    status: CheckStatus,
-    detail: Option<String>,
-}
-
-enum CheckStatus {
-    Ok,
-    Warning,
-    Error,
-    NotInstalled,
-}
-
-impl CheckResult {
-    fn ok(name: &str, detail: Option<String>) -> Self {
-        Self {
-            name: name.to_string(),
-            status: CheckStatus::Ok,
-            detail,
-        }
-    }
-
-    fn warning(name: &str, detail: Option<String>) -> Self {
-        Self {
-            name: name.to_string(),
-            status: CheckStatus::Warning,
-            detail,
-        }
-    }
-
-    fn error(name: &str, detail: Option<String>) -> Self {
-        Self {
-            name: name.to_string(),
-            status: CheckStatus::Error,
-            detail,
-        }
-    }
-
-    fn not_installed(name: &str) -> Self {
-        Self {
-            name: name.to_string(),
-            status: CheckStatus::NotInstalled,
-            detail: None,
-        }
-    }
-
-    fn print(&self) {
-        let (icon, colored_name) = match self.status {
-            CheckStatus::Ok => (format!("[{}]", "X".green()), self.name.green().to_string()),
-            CheckStatus::Warning => (
-                format!("[{}]", "!".yellow()),
-                self.name.yellow().to_string(),
-            ),
-            CheckStatus::Error => (format!("[{}]", "X".red()), self.name.red().to_string()),
-            CheckStatus::NotInstalled => (
-                format!("[{}]", "O".dimmed()),
-                self.name.dimmed().to_string(),
-            ),
-        };
-
-        match &self.detail {
-            Some(d) => println!("  {} {}  {}", icon, colored_name, d.dimmed()),
-            None => println!("  {} {}", icon, colored_name),
-        }
-    }
-}
+use crate::ui::UI;
 
 /// run all diagnostic checks
 pub async fn run() -> Result<()> {
-    say!("projectlighthouse CLI v{}\n", VERSION);
+    UI::header();
 
     // system info
-    print_section("System");
+    UI::section("System");
     check_system_info();
 
     // authentication
-    print_section("Authentication");
+    UI::section("Authentication");
     let config = check_auth();
 
     // network connectivity
-    print_section("Network");
+    UI::section("Network");
     check_network(&config).await;
 
     // development tools
-    print_section("Development Tools");
+    UI::section("Development Tools");
     check_dev_tools();
 
     // active project
-    print_section("Project State");
+    UI::section("Project State");
     check_project_state(&config);
 
-    println!();
-    say!("run `luxctl doctor` after installing missing tools to verify");
+    UI::blank();
+    UI::note("run `luxctl doctor` after installing missing tools to verify");
 
     Ok(())
-}
-
-fn print_section(name: &str) {
-    println!("\n{}:", name.bold());
 }
 
 fn check_system_info() {
     let os = std::env::consts::OS;
     let arch = std::env::consts::ARCH;
 
-    CheckResult::ok("os", Some(os.to_string())).print();
-    CheckResult::ok("arch", Some(arch.to_string())).print();
+    UI::ok("os", Some(os));
+    UI::ok("arch", Some(arch));
 
-    // check home directory exists (needed for config storage)
     match dirs::home_dir() {
         Some(home) => {
             let luxctl_dir = home.join(".luxctl");
             if luxctl_dir.exists() {
-                CheckResult::ok("config dir", Some(luxctl_dir.to_string_lossy().to_string()))
-                    .print();
+                UI::ok("config dir", Some(&luxctl_dir.to_string_lossy()));
             } else {
-                CheckResult::warning(
+                UI::warn(
                     "config dir",
-                    Some(format!(
-                        "{} (will be created)",
-                        luxctl_dir.to_string_lossy()
-                    )),
-                )
-                .print();
+                    Some(&format!("{} (will be created)", luxctl_dir.to_string_lossy())),
+                );
             }
         }
         None => {
-            CheckResult::error(
-                "home dir",
-                Some("could not determine home directory".into()),
-            )
-            .print();
+            UI::error("home dir", Some("could not determine home directory"));
         }
     }
 }
 
 fn check_auth() -> Option<Config> {
-    // check if config exists first
     match Config::exists() {
         Ok(false) => {
-            CheckResult::warning(
+            UI::warn(
                 "not configured",
-                Some("run `luxctl auth --token $token` to get started".into()),
-            )
-            .print();
+                Some("run `luxctl auth --token $token` to get started"),
+            );
             return None;
         }
         Err(e) => {
-            CheckResult::error("config", Some(format!("could not check config: {}", e))).print();
+            UI::error("config", Some(&format!("could not check config: {}", e)));
             return None;
         }
         Ok(true) => {}
     }
 
-    // config exists, try to load it
     match Config::load() {
         Ok(config) if config.has_auth_token() => {
-            CheckResult::ok("authenticated", Some("token configured".into())).print();
+            UI::ok("authenticated", Some("token configured"));
             Some(config)
         }
         Ok(_) => {
-            CheckResult::warning(
-                "token empty",
-                Some("run `luxctl auth --token $token`".into()),
-            )
-            .print();
+            UI::warn("token empty", Some("run `luxctl auth --token $token`"));
             None
         }
         Err(e) => {
-            CheckResult::error("config", Some(format!("failed to load: {}", e))).print();
+            UI::error("config", Some(&format!("failed to load: {}", e)));
             None
         }
     }
 }
 
 async fn check_network(config: &Option<Config>) {
-    // first check unauthenticated healthcheck endpoint
     let client = LighthouseAPIClient::default();
     match client.healthcheck().await {
         Ok(response) => {
-            CheckResult::ok("healthcheck", Some(response.status)).print();
+            UI::ok("healthcheck", Some(&response.status));
         }
         Err(e) => {
             let msg = format!("{}", e);
             if msg.contains("timeout") || msg.contains("connect") {
-                CheckResult::error(
+                UI::error(
                     "healthcheck",
-                    Some("could not connect to projectlighthouse.io".into()),
-                )
-                .print();
+                    Some("could not connect to projectlighthouse.io"),
+                );
             } else {
-                CheckResult::error("healthcheck", Some(msg)).print();
+                UI::error("healthcheck", Some(&msg));
             }
-            // if healthcheck fails, skip authenticated check
             return;
         }
     }
 
-    // then check authenticated endpoint
     let Some(config) = config else {
-        CheckResult::warning("api", Some("skipped (not authenticated)".into())).print();
+        UI::warn("api", Some("skipped (not authenticated)"));
         return;
     };
 
     let client = LighthouseAPIClient::from_config(config);
     match client.me().await {
         Ok(user) => {
-            CheckResult::ok("api", Some(format!("connected as {}", user.email))).print();
+            UI::ok("api", Some(&format!("connected as {}", user.email)));
         }
         Err(e) => {
-            let msg = format!("{}", e);
-            CheckResult::error("api", Some(msg)).print();
+            UI::error("api", Some(&format!("{}", e)));
         }
     }
 }
 
 fn check_dev_tools() {
-    // these are the tools validators may need
     let tools = vec![
         ToolCheck::new("git", &["--version"], true),
         ToolCheck::new("go", &["version"], false),
@@ -239,14 +143,11 @@ fn check_dev_tools() {
     ];
 
     for tool in tools {
-        tool.check().print();
+        tool.check();
     }
 
-    println!();
-    say!(
-        "  {}",
-        "note: only install tools needed for your chosen runtime".dimmed()
-    );
+    UI::blank();
+    UI::note("note: only install tools needed for your chosen runtime");
 }
 
 struct ToolCheck {
@@ -264,25 +165,24 @@ impl ToolCheck {
         }
     }
 
-    fn check(&self) -> CheckResult {
+    fn check(&self) {
         match Command::new(self.name).args(self.args).output() {
             Ok(output) if output.status.success() => {
                 let version = extract_version(&output.stdout);
-                CheckResult::ok(self.name, version)
+                UI::ok(self.name, version.as_deref());
             }
             Ok(_) => {
-                // command exists but returned error
                 if self.required {
-                    CheckResult::error(self.name, Some("installed but returned error".into()))
+                    UI::error(self.name, Some("installed but returned error"));
                 } else {
-                    CheckResult::warning(self.name, Some("installed but returned error".into()))
+                    UI::warn(self.name, Some("installed but returned error"));
                 }
             }
             Err(_) => {
                 if self.required {
-                    CheckResult::error(self.name, Some("required but not found".into()))
+                    UI::error(self.name, Some("required but not found"));
                 } else {
-                    CheckResult::not_installed(self.name)
+                    UI::skip(self.name, None);
                 }
             }
         }
@@ -294,17 +194,6 @@ fn extract_version(output: &[u8]) -> Option<String> {
     let text = String::from_utf8_lossy(output);
     let first_line = text.lines().next()?;
 
-    // try to find version-like pattern (e.g., "1.2.3", "v1.2.3", "go1.22.0")
-    // common patterns:
-    // - "git version 2.39.0"
-    // - "go version go1.22.0 darwin/arm64"
-    // - "cargo 1.75.0"
-    // - "rustc 1.75.0"
-    // - "Docker version 24.0.7, build abcd123"
-    // - "gcc (Homebrew GCC 13.2.0) 13.2.0"
-    // - "GNU Make 3.81"
-
-    // simple approach: find words containing digits and dots
     for word in first_line.split_whitespace() {
         let cleaned = word
             .trim_start_matches('v')
@@ -315,59 +204,48 @@ fn extract_version(output: &[u8]) -> Option<String> {
         }
     }
 
-    // fallback: just return the first line trimmed
     Some(first_line.trim().to_string())
 }
 
 fn check_project_state(config: &Option<Config>) {
     let Some(config) = config else {
-        CheckResult::warning("project", Some("skipped (not authenticated)".into())).print();
+        UI::warn("project", Some("skipped (not authenticated)"));
         return;
     };
 
     let state = match ProjectState::load(config.expose_token()) {
         Ok(s) => s,
         Err(e) => {
-            CheckResult::error("state", Some(format!("failed to load: {}", e))).print();
+            UI::error("state", Some(&format!("failed to load: {}", e)));
             return;
         }
     };
 
     if let Some(project) = state.get_active() {
-        CheckResult::ok("active project", Some(project.name.clone())).print();
+        UI::ok("active project", Some(&project.name));
 
-        // check workspace exists
         let workspace_path = std::path::Path::new(&project.workspace);
         if workspace_path.exists() {
-            CheckResult::ok("workspace", Some(project.workspace.clone())).print();
+            UI::ok("workspace", Some(&project.workspace));
         } else {
-            CheckResult::error(
-                "workspace",
-                Some(format!("{} (not found)", project.workspace)),
-            )
-            .print();
+            UI::error("workspace", Some(&format!("{} (not found)", project.workspace)));
         }
 
-        // show runtime if set
         if let Some(rt) = &project.runtime {
-            CheckResult::ok("runtime", Some(rt.clone())).print();
+            UI::ok("runtime", Some(rt));
         } else {
-            CheckResult::warning("runtime", Some("not set".into())).print();
+            UI::warn("runtime", Some("not set"));
         }
 
-        // show progress
         let progress = format!(
             "{}/{} tasks completed",
             project.completed_count(),
             project.tasks.len()
         );
-        CheckResult::ok("progress", Some(progress)).print();
+        UI::ok("progress", Some(&progress));
     } else {
-        CheckResult::ok("project", Some("none active".into())).print();
-        say!(
-            "  {}",
-            "run `luxctl project start --slug <SLUG>` to begin".dimmed()
-        );
+        UI::ok("project", Some("none active"));
+        UI::note("run `luxctl project start --slug <SLUG>` to begin");
     }
 }
 

@@ -5,7 +5,7 @@ use crate::api::{PaginatedResponse, Project, Task, TaskStatus};
 use crate::state::ActiveProject;
 use crate::tasks::{TestCase, TestResults};
 
-// status symbols for consistent output
+// status symbols for consistent output (matching ui.rs)
 const SYM_PASS: &str = "✓";
 const SYM_FAIL: &str = "✗";
 const SYM_PENDING: &str = "○";
@@ -88,7 +88,7 @@ impl Message {
                 let line_char = if is_last { " " } else { "│" };
 
                 let status_marker = match task.status {
-                    TaskStatus::ChallengeCompleted => format!(" {}", SYM_FAIL).green().to_string(),
+                    TaskStatus::ChallengeCompleted => format!(" {}", SYM_PASS).green().to_string(),
                     TaskStatus::ChallengeFailed => format!(" {}", SYM_FAIL).red().to_string(),
                     _ => String::new(),
                 };
@@ -201,7 +201,7 @@ impl Message {
 
         for (i, task) in project.tasks.iter().enumerate() {
             let (status, status_color) = match task.status {
-                TaskStatus::ChallengeCompleted => (SYM_FAIL.to_string(), "green"),
+                TaskStatus::ChallengeCompleted => (SYM_PASS.to_string(), "green"),
                 TaskStatus::ChallengeFailed => (SYM_FAIL.to_string(), "red"),
                 TaskStatus::Challenged => (SYM_PENDING.to_string(), "yellow"),
                 TaskStatus::ChallengeAwaits | TaskStatus::ChallengeAbandoned => {
