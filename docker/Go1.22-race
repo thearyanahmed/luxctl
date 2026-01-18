@@ -1,0 +1,84 @@
+# Go 1.22 race detector validator
+# builds with -race flag, runs server under concurrent load, checks for races
+#
+# usage: mount code at /app, run with --network=host
+# exit 0 = no races, exit 1 = race detected
+# race details are written to stderr
+
+FROM golang:1.22
+
+# install curl for load testing
+RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# copy go.mod first for better caching
+COPY go.mod go.sum* ./
+RUN go mod download 2>/dev/null || true
+
+# copy source
+COPY . .
+
+# build with race detector
+RUN go build -race -o /tmp/server .
+
+# default config via env vars
+ENV PORT=8080
+ENV CONCURRENT_REQUESTS=50
+ENV STARTUP_DELAY=2
+ENV LOAD_DURATION=3
+
+# entrypoint script runs the race detection test
+COPY <<'EOF' /entrypoint.sh
+#!/bin/sh
+set -e
+
+# start server in background, capture stderr for race reports
+/tmp/server 2>/tmp/race_output.txt &
+SERVER_PID=$!
+
+# wait for server to start
+sleep $STARTUP_DELAY
+
+# check if server is running
+if ! kill -0 $SERVER_PID 2>/dev/null; then
+    echo "server failed to start" >&2
+    cat /tmp/race_output.txt >&2
+    exit 1
+fi
+
+# generate concurrent load
+for i in $(seq 1 $CONCURRENT_REQUESTS); do
+    (
+        curl -s -X POST http://localhost:$PORT/jobs \
+            -H "Content-Type: application/json" \
+            -d '{"type":"test","payload":"race-test-'$i'"}' > /dev/null 2>&1 &
+        curl -s http://localhost:$PORT/jobs > /dev/null 2>&1 &
+    ) &
+done
+
+# wait for requests
+wait
+
+# give race detector time to report
+sleep $LOAD_DURATION
+
+# stop server
+kill -TERM $SERVER_PID 2>/dev/null || true
+sleep 1
+kill -9 $SERVER_PID 2>/dev/null || true
+
+# check for race conditions
+if grep -q "WARNING: DATA RACE\|race detected" /tmp/race_output.txt; then
+    echo "RACE_DETECTED" >&2
+    cat /tmp/race_output.txt >&2
+    exit 1
+fi
+
+echo "no race conditions detected"
+exit 0
+EOF
+
+RUN chmod +x /entrypoint.sh
+
+ENTRYPOINT ["/entrypoint.sh"]
