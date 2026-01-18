@@ -137,14 +137,32 @@ fn check_system_info() {
 }
 
 fn check_auth() -> Option<Config> {
+    // check if config exists first
+    match Config::exists() {
+        Ok(false) => {
+            CheckResult::warning(
+                "not configured",
+                Some("run `luxctl auth --token <TOKEN>` to get started".into()),
+            )
+            .print();
+            return None;
+        }
+        Err(e) => {
+            CheckResult::error("config", Some(format!("could not check config: {}", e))).print();
+            return None;
+        }
+        Ok(true) => {}
+    }
+
+    // config exists, try to load it
     match Config::load() {
         Ok(config) if config.has_auth_token() => {
-            CheckResult::ok("logged in", Some("token configured".into())).print();
+            CheckResult::ok("authenticated", Some("token configured".into())).print();
             Some(config)
         }
         Ok(_) => {
             CheckResult::warning(
-                "not logged in",
+                "token empty",
                 Some("run `luxctl auth --token <TOKEN>`".into()),
             )
             .print();
