@@ -1,48 +1,57 @@
-# lux
+# luxctl
 
-CLI for [Project Lighthouse](https://projectlighthouse.io) - validate systems programming exercises locally.
+CLI for [projectlighthouse.io](https://projectlighthouse.io) — learn by building real systems.
 
 ## Install
 
 ```bash
-# from source
-cargo install --path .
+# one-liner (installs Rust if needed)
+curl -fsSL https://raw.githubusercontent.com/thearyanahmed/luxctl/master/install.sh | bash
 
-# or build release binary
-make release
-./target/release/lux
+# or via cargo
+cargo install luxctl
+
+# specific version
+cargo install luxctl --version 0.5.3
+```
+
+## Quick Start
+
+```bash
+# authenticate with your token from projectlighthouse.io
+luxctl auth --token <TOKEN>
+
+# verify setup
+luxctl doctor
+
+# see who you are
+luxctl whoami
 ```
 
 ## Usage
 
 ```bash
-# authenticate
-lux auth --token <TOKEN>
-
-# show current user
-lux whoami
-
-# list projects
-lux project list
+# list available projects
+luxctl project list
 
 # start a project
-lux project start --slug tcp-echo-server --runtime go
+luxctl project start --slug tcp-echo-server --runtime go
 
-# list tasks
-lux task list
+# list tasks for current project
+luxctl task list
 
 # show task details
-lux task show --task 1
+luxctl task show --task 1
 
-# run validation for a task
-lux run --task 1
+# run validation
+luxctl run --task 1
 
 # validate all tasks
-lux validate
+luxctl validate
 
 # get hints (costs points)
-lux hint list --task 1
-lux hint unlock --task 1 --hint <HINT_UUID>
+luxctl hint list --task 1
+luxctl hint unlock --task 1 --hint <HINT_UUID>
 ```
 
 ## Development
@@ -52,11 +61,8 @@ cargo build           # debug build
 cargo test            # run tests
 cargo fmt             # format
 cargo clippy          # lint
-make check            # all checks
 ```
 
-### Release
+## License
 
-```bash
-make release:build VERSION=0.2.0
-```
+MIT
