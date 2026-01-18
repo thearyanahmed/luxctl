@@ -68,6 +68,31 @@ cargo clippy          # lint
 - **Go** - detects `go.mod`, builds with `go build .`
 - **Rust** - detects `Cargo.toml`, builds with `cargo check`
 
+## Contributing
+
+Contributions are welcome! Here's how to get started:
+
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feature/my-feature`
+3. Make your changes
+4. Run checks: `cargo fmt && cargo clippy && cargo test`
+5. Commit with a clear message
+6. Push and open a pull request
+
+### Guidelines
+
+- Follow existing code style
+- Add tests for new functionality
+- Keep commits focused and atomic
+- Update documentation as needed
+
+### Reporting Issues
+
+- Check existing issues before creating a new one
+- Include luxctl version (`luxctl --version`)
+- Include OS and architecture
+- Provide steps to reproduce
+
 ## Release
 
 Releases are automated via GitHub Actions. To create a new release:
@@ -90,4 +115,6 @@ The Release workflow will:
 
 ## License
 
-MIT
+AGPL-3.0 - See [LICENSE](LICENSE) for details.
+
+This means you can use, modify, and distribute this software, but if you modify it and provide it as a service (even over a network), you must release your source code under the same license.
