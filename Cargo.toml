@@ -2,7 +2,7 @@
 name = "luxctl"
 version = "0.5.3"
 edition = "2021"
-description = "CLI tool for projectlighthouse - hands-on exercises for building production-ready systems"
+description = "Learn by building - CLI for projectlighthouse.io"
 license = "MIT"
 repository = "https://github.com/thearyanahmed/luxctl"
 homepage = "https://projectlighthouse.io"
