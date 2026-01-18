@@ -1,5 +1,6 @@
 use super::compile::CanCompileValidator;
-use super::docker::{GoCompileValidator, RaceDetectorValidator};
+use super::docker::{DockerValidator, Expectation};
+use super::docker_legacy::{GoCompileValidator, RaceDetectorValidator};
 use super::file::FileContentsMatchValidator;
 use super::http::{
     ConcurrentRequestsValidator, HttpGetCompressedValidator, HttpGetFileValidator,
@@ -58,6 +59,8 @@ pub enum RuntimeValidator {
     // docker-based validators (language-specific)
     RaceDetector(RaceDetectorValidator),
     GoCompile(GoCompileValidator),
+    // new docker validator (downloads Dockerfiles from GitHub)
+    Docker(DockerValidator),
     // placeholder for validators not yet implemented
     NotImplemented(String),
 }
@@ -101,6 +104,7 @@ impl RuntimeValidator {
             RuntimeValidator::HttpStatusCheck(v) => v.validate().await,
             RuntimeValidator::RaceDetector(v) => v.validate().await,
             RuntimeValidator::GoCompile(v) => v.validate().await,
+            RuntimeValidator::Docker(v) => v.validate().await,
             RuntimeValidator::NotImplemented(name) => Ok(TestCase {
                 name: format!("validator '{}'", name),
                 result: Err(format!("validator '{}' not implemented yet", name)),
@@ -146,6 +150,7 @@ impl RuntimeValidator {
             RuntimeValidator::HttpStatusCheck(_) => "http_status_check",
             RuntimeValidator::RaceDetector(_) => "race_detector",
             RuntimeValidator::GoCompile(_) => "go_compile",
+            RuntimeValidator::Docker(_) => "docker",
             RuntimeValidator::NotImplemented(name) => name,
         }
     }
@@ -196,6 +201,7 @@ fn create_from_parsed(parsed: &ParsedValidator) -> Result<RuntimeValidator, Stri
         "http_status_check" => create_http_status_check(parsed),
         "race_detector" => create_race_detector(parsed),
         "go_compile" => create_go_compile(parsed),
+        "docker" => create_docker(parsed),
         _ => Ok(RuntimeValidator::NotImplemented(parsed.name.clone())),
     }
 }
@@ -618,6 +624,27 @@ fn create_go_compile(parsed: &ParsedValidator) -> Result<RuntimeValidator, Strin
     )))
 }
 
+// docker:string(Go1.22-race),string(fail_if:stderr contains DATA RACE)
+// docker:string(Go1.22),string(exit:0),int(120)
+// param 0: dockerfile name (fetched from GitHub)
+// param 1: expectation DSL (exit:0, fail_if:stderr contains X, pass_if:stdout contains Y)
+// param 2: optional timeout in seconds
+fn create_docker(parsed: &ParsedValidator) -> Result<RuntimeValidator, String> {
+    let dockerfile_name = parsed.param_as_string(0)?;
+    let expectation_str = parsed.param_as_string(1)?;
+    let timeout_secs = parsed.param_as_int(2).ok().map(|t| t as u64);
+
+    let expectation =
+        Expectation::parse(expectation_str).map_err(|e| format!("invalid expectation: {}", e))?;
+
+    let mut validator = DockerValidator::new(dockerfile_name, expectation);
+    if let Some(secs) = timeout_secs {
+        validator = validator.with_timeout(secs);
+    }
+
+    Ok(RuntimeValidator::Docker(validator))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -720,5 +747,27 @@ mod tests {
     fn test_create_http_get_file() {
         let validator = create_validator("http_get_file:string(/files/test.txt),int(200)").unwrap();
         assert_eq!(validator.name(), "http_get_file");
+    }
+
+    #[test]
+    fn test_create_docker_with_exit_code() {
+        let validator = create_validator("docker:string(Go1.22),string(exit:0)").unwrap();
+        assert_eq!(validator.name(), "docker");
+    }
+
+    #[test]
+    fn test_create_docker_with_fail_if() {
+        let validator = create_validator(
+            "docker:string(Go1.22-race),string(fail_if:stderr contains DATA RACE)",
+        )
+        .unwrap();
+        assert_eq!(validator.name(), "docker");
+    }
+
+    #[test]
+    fn test_create_docker_with_timeout() {
+        let validator =
+            create_validator("docker:string(Go1.22-race),string(exit:0),int(300)").unwrap();
+        assert_eq!(validator.name(), "docker");
     }
 }

@@ -1,6 +1,6 @@
 //! Docker executor - downloads Dockerfiles and runs containers
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use tokio::process::Command;
 use tokio::time::{timeout, Duration};
@@ -131,7 +131,7 @@ impl DockerExecutor {
 
     async fn docker_build(
         &self,
-        dockerfile_path: &PathBuf,
+        dockerfile_path: &Path,
         context: &str,
         tag: &str,
     ) -> Result<ExecutorResult, String> {
@@ -196,12 +196,6 @@ impl DockerExecutor {
                 timeout_secs.unwrap_or(DEFAULT_TIMEOUT_SECS)
             )),
         }
-    }
-}
-
-impl Default for DockerExecutor {
-    fn default() -> Self {
-        Self::new().expect("failed to create DockerExecutor")
     }
 }
 
