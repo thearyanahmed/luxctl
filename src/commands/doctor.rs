@@ -58,10 +58,10 @@ impl CheckResult {
 
     fn print(&self) {
         let (icon, colored_name) = match self.status {
-            CheckStatus::Ok => ("[X]".green().to_string(), self.name.green().to_string()),
-            CheckStatus::Warning => ("[!]".yellow().to_string(), self.name.yellow().to_string()),
-            CheckStatus::Error => ("[X]".red().to_string(), self.name.red().to_string()),
-            CheckStatus::NotInstalled => ("[O]".dimmed().to_string(), self.name.dimmed().to_string()),
+            CheckStatus::Ok => (format!("[{}]", "X".green()), self.name.green().to_string()),
+            CheckStatus::Warning => (format!("[{}]", "!".yellow()), self.name.yellow().to_string()),
+            CheckStatus::Error => (format!("[{}]", "X".red()), self.name.red().to_string()),
+            CheckStatus::NotInstalled => (format!("[{}]", "O".dimmed()), self.name.dimmed().to_string()),
         };
 
         match &self.detail {
@@ -142,7 +142,7 @@ fn check_auth() -> Option<Config> {
         Ok(false) => {
             CheckResult::warning(
                 "not configured",
-                Some("run `luxctl auth --token <TOKEN>` to get started".into()),
+                Some("run `luxctl auth --token $token` to get started".into()),
             )
             .print();
             return None;
@@ -163,7 +163,7 @@ fn check_auth() -> Option<Config> {
         Ok(_) => {
             CheckResult::warning(
                 "token empty",
-                Some("run `luxctl auth --token <TOKEN>`".into()),
+                Some("run `luxctl auth --token $token`".into()),
             )
             .print();
             None

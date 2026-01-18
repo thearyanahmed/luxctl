@@ -19,7 +19,7 @@ cargo install luxctl --version 0.5.3
 
 ```bash
 # authenticate with your token from projectlighthouse.io
-luxctl auth --token <TOKEN>
+luxctl auth --token $token
 
 # verify setup
 luxctl doctor
@@ -51,7 +51,7 @@ luxctl validate
 
 # get hints (costs points)
 luxctl hint list --task 1
-luxctl hint unlock --task 1 --hint <HINT_UUID>
+luxctl hint unlock --task 1 --hint $hint_uuid
 ```
 
 ## Development

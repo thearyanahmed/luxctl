@@ -5,11 +5,11 @@ use crate::api::LighthouseAPIClient;
 use crate::config::Config;
 use crate::{oops, say};
 
-/// handle `lux hints --task <slug>`
+/// handle `luxctlhints --task <slug>`
 pub async fn list(task_slug: &str) -> Result<()> {
     let config = Config::load()?;
     if !config.has_auth_token() {
-        oops!("not authenticated. Run: `lux auth --token <TOKEN>`");
+        oops!("not authenticated. Run: `luxctl auth --token $token`");
         return Ok(());
     }
 
@@ -52,7 +52,7 @@ pub async fn list(task_slug: &str) -> Result<()> {
             }
         } else if hint.is_available {
             println!(
-                "       {} lux hint unlock --task {} --hint {}",
+                "       {} luxctl hint unlock --task {} --hint {}",
                 "unlock:".dimmed(),
                 task_slug,
                 hint.uuid
@@ -66,11 +66,11 @@ pub async fn list(task_slug: &str) -> Result<()> {
     Ok(())
 }
 
-/// handle `lux hint unlock --task <slug> --hint <uuid>`
+/// handle `luxctlhint unlock --task <slug> --hint <uuid>`
 pub async fn unlock(task_slug: &str, hint_uuid: &str) -> Result<()> {
     let config = Config::load()?;
     if !config.has_auth_token() {
-        oops!("not authenticated. Run: `lux auth --token <TOKEN>`");
+        oops!("not authenticated. Run: `luxctl auth --token $token`");
         return Ok(());
     }
 

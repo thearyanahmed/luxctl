@@ -5,11 +5,11 @@ use crate::config::Config;
 use crate::state::ProjectState;
 use crate::{cheer, oops, say};
 
-/// handle `lux project start --slug <slug> --workspace <path> [--runtime <runtime>]`
+/// handle `luxctlproject start --slug <slug> --workspace <path> [--runtime <runtime>]`
 pub async fn start(slug: &str, workspace: &str, runtime: Option<&str>) -> Result<()> {
     let config = Config::load()?;
     if !config.has_auth_token() {
-        oops!("not authenticated. Run: `lux auth --token <TOKEN>`");
+        oops!("not authenticated. Run: `luxctl auth --token $token`");
         return Ok(());
     }
 
@@ -20,7 +20,7 @@ pub async fn start(slug: &str, workspace: &str, runtime: Option<&str>) -> Result
         Ok(p) => p,
         Err(err) => {
             oops!("project '{}' not found: {}", slug, err);
-            say!("run `lux projects` to see available projects");
+            say!("run `luxctlprojects` to see available projects");
             return Ok(());
         }
     };
@@ -49,16 +49,16 @@ pub async fn start(slug: &str, workspace: &str, runtime: Option<&str>) -> Result
     if let Some(rt) = runtime {
         say!("    runtime: {}", rt);
     }
-    say!("run `lux tasks` to see available tasks");
+    say!("run `luxctltasks` to see available tasks");
 
     Ok(())
 }
 
-/// handle `lux project status`
+/// handle `luxctlproject status`
 pub fn status() -> Result<()> {
     let config = Config::load()?;
     if !config.has_auth_token() {
-        oops!("not authenticated. Run: `lux auth --token <TOKEN>`");
+        oops!("not authenticated. Run: `luxctl auth --token $token`");
         return Ok(());
     }
 
@@ -78,20 +78,20 @@ pub fn status() -> Result<()> {
             project.completed_count(),
             project.tasks.len()
         );
-        say!("run `lux tasks` for task list");
+        say!("run `luxctltasks` for task list");
     } else {
         say!("no active project");
-        say!("run `lux project start --slug <SLUG>` to start one");
+        say!("run `luxctlproject start --slug <SLUG>` to start one");
     }
 
     Ok(())
 }
 
-/// handle `lux project stop`
+/// handle `luxctlproject stop`
 pub fn stop() -> Result<()> {
     let config = Config::load()?;
     if !config.has_auth_token() {
-        oops!("not authenticated. Run: `lux auth --token <TOKEN>`");
+        oops!("not authenticated. Run: `luxctl auth --token $token`");
         return Ok(());
     }
 
@@ -112,11 +112,11 @@ pub fn stop() -> Result<()> {
     Ok(())
 }
 
-/// handle `lux project set --runtime <runtime>`
+/// handle `luxctlproject set --runtime <runtime>`
 pub fn set_runtime(runtime: &str) -> Result<()> {
     let config = Config::load()?;
     if !config.has_auth_token() {
-        oops!("not authenticated. Run: `lux auth --token <TOKEN>`");
+        oops!("not authenticated. Run: `luxctl auth --token $token`");
         return Ok(());
     }
 
@@ -128,17 +128,17 @@ pub fn set_runtime(runtime: &str) -> Result<()> {
         cheer!("runtime set to: {}", runtime);
     } else {
         oops!("no active project");
-        say!("run `lux project start --slug <SLUG>` first");
+        say!("run `luxctlproject start --slug <SLUG>` first");
     }
 
     Ok(())
 }
 
-/// handle `lux project set --workspace <path>`
+/// handle `luxctlproject set --workspace <path>`
 pub fn set_workspace(workspace: &str) -> Result<()> {
     let config = Config::load()?;
     if !config.has_auth_token() {
-        oops!("not authenticated. Run: `lux auth --token <TOKEN>`");
+        oops!("not authenticated. Run: `luxctl auth --token $token`");
         return Ok(());
     }
 
@@ -146,7 +146,7 @@ pub fn set_workspace(workspace: &str) -> Result<()> {
 
     if state.get_active().is_none() {
         oops!("no active project");
-        say!("run `lux project start --slug <SLUG>` first");
+        say!("run `luxctlproject start --slug <SLUG>` first");
         return Ok(());
     }
 

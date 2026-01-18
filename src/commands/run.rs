@@ -8,12 +8,12 @@ use crate::tasks::{TestCase, TestResults};
 use crate::validators::create_validator;
 use crate::{cheer, complain, oops, say};
 
-/// handle `lux run --task <slug|number> [--project <slug>]`
+/// handle `luxctlrun --task <slug|number> [--project <slug>]`
 /// task can be specified by slug or by number (1, 01, 2, 02, etc.)
 pub async fn run(task_id: &str, project_slug: Option<&str>, detailed: bool) -> Result<()> {
     let config = Config::load()?;
     if !config.has_auth_token() {
-        oops!("not authenticated. Run: `lux auth --token <TOKEN>`");
+        oops!("not authenticated. Run: `luxctl auth --token $token`");
         return Ok(());
     }
 
@@ -29,7 +29,7 @@ pub async fn run(task_id: &str, project_slug: Option<&str>, detailed: bool) -> R
                 p.slug.clone()
             } else {
                 oops!("no project specified and no active project");
-                say!("use `--project <SLUG>` or run `lux project start --slug <SLUG>` first");
+                say!("use `--project <SLUG>` or run `luxctlproject start --slug <SLUG>` first");
                 return Ok(());
             }
         }

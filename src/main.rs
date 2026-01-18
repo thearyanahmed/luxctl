@@ -143,7 +143,7 @@ enum HintAction {
 }
 
 impl Commands {
-    pub const AUTH_USAGE: &'static str = "luxctl auth --token <TOKEN>";
+    pub const AUTH_USAGE: &'static str = "luxctl auth --token $token";
 }
 
 #[tokio::main]

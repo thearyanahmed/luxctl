@@ -6,11 +6,11 @@ use crate::message::Message;
 use crate::state::ProjectState;
 use crate::{oops, say};
 
-/// handle `lux tasks [--refresh]`
+/// handle `luxctltasks [--refresh]`
 pub async fn list(refresh: bool) -> Result<()> {
     let config = Config::load()?;
     if !config.has_auth_token() {
-        oops!("not authenticated. Run: `lux auth --token <TOKEN>`");
+        oops!("not authenticated. Run: `luxctl auth --token $token`");
         return Ok(());
     }
 
@@ -20,7 +20,7 @@ pub async fn list(refresh: bool) -> Result<()> {
         p.clone()
     } else {
         oops!("no active project");
-        say!("run `lux project start --slug <SLUG>` first");
+        say!("run `luxctlproject start --slug <SLUG>` first");
         return Ok(());
     };
 
