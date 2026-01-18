@@ -63,6 +63,31 @@ cargo fmt             # format
 cargo clippy          # lint
 ```
 
+## Supported Runtimes
+
+- **Go** - detects `go.mod`, builds with `go build .`
+- **Rust** - detects `Cargo.toml`, builds with `cargo check`
+
+## Release
+
+Releases are automated via GitHub Actions. To create a new release:
+
+1. Update version in both `Cargo.toml` and `src/lib.rs`
+2. Run `cargo build` to update `Cargo.lock`
+3. Commit and push to master
+4. Wait for Auto Tag workflow to create the version tag
+5. Trigger the Release workflow:
+   ```bash
+   gh workflow run Release --field tag=v0.6.2
+   ```
+
+The Release workflow will:
+- Run tests
+- Verify version matches tag
+- Publish to crates.io
+- Generate changelog
+- Create GitHub release
+
 ## License
 
 MIT
