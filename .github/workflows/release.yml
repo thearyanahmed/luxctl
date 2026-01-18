@@ -179,7 +179,7 @@ jobs:
 
       - name: Wait for crates.io index
         shell: bash
-        run: sleep 30
+        run: sleep 60
 
       - name: Install luxctl from crates.io
         shell: bash
