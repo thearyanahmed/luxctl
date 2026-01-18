@@ -1,6 +1,5 @@
 pub mod compile;
 pub mod docker;
-pub mod docker_legacy;
 pub mod endpoint;
 pub mod factory;
 pub mod file;
@@ -13,7 +12,6 @@ pub mod scenario;
 
 pub use compile::CanCompileValidator;
 pub use docker::{DockerExecutor, DockerValidator, Expectation};
-pub use docker_legacy::{GoCompileValidator, RaceDetectorValidator};
 pub use endpoint::EndpointValidator;
 pub use factory::{create_validator, RuntimeValidator};
 pub use file::FileContentsMatchValidator;

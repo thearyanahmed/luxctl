@@ -1,6 +1,5 @@
 use super::compile::CanCompileValidator;
 use super::docker::{DockerValidator, Expectation};
-use super::docker_legacy::{GoCompileValidator, RaceDetectorValidator};
 use super::file::FileContentsMatchValidator;
 use super::http::{
     ConcurrentRequestsValidator, HttpGetCompressedValidator, HttpGetFileValidator,
@@ -56,10 +55,7 @@ pub enum RuntimeValidator {
     HttpHealthCheck(HttpHealthCheck),
     HttpJsonFieldValue(HttpJsonFieldValue),
     HttpStatusCheck(HttpStatusCheck),
-    // docker-based validators (language-specific)
-    RaceDetector(RaceDetectorValidator),
-    GoCompile(GoCompileValidator),
-    // new docker validator (downloads Dockerfiles from GitHub)
+    // docker validator (downloads Dockerfiles from GitHub at runtime)
     Docker(DockerValidator),
     // placeholder for validators not yet implemented
     NotImplemented(String),
@@ -102,8 +98,6 @@ impl RuntimeValidator {
             RuntimeValidator::HttpHealthCheck(v) => v.validate().await,
             RuntimeValidator::HttpJsonFieldValue(v) => v.validate().await,
             RuntimeValidator::HttpStatusCheck(v) => v.validate().await,
-            RuntimeValidator::RaceDetector(v) => v.validate().await,
-            RuntimeValidator::GoCompile(v) => v.validate().await,
             RuntimeValidator::Docker(v) => v.validate().await,
             RuntimeValidator::NotImplemented(name) => Ok(TestCase {
                 name: format!("validator '{}'", name),
@@ -148,8 +142,6 @@ impl RuntimeValidator {
             RuntimeValidator::HttpHealthCheck(_) => "http_health_check",
             RuntimeValidator::HttpJsonFieldValue(_) => "http_json_field_value",
             RuntimeValidator::HttpStatusCheck(_) => "http_status_check",
-            RuntimeValidator::RaceDetector(_) => "race_detector",
-            RuntimeValidator::GoCompile(_) => "go_compile",
             RuntimeValidator::Docker(_) => "docker",
             RuntimeValidator::NotImplemented(name) => name,
         }
@@ -199,8 +191,6 @@ fn create_from_parsed(parsed: &ParsedValidator) -> Result<RuntimeValidator, Stri
         "http_health_check" => create_http_health_check(parsed),
         "http_json_field_value" => create_http_json_field_value(parsed),
         "http_status_check" => create_http_status_check(parsed),
-        "race_detector" => create_race_detector(parsed),
-        "go_compile" => create_go_compile(parsed),
         "docker" => create_docker(parsed),
         _ => Ok(RuntimeValidator::NotImplemented(parsed.name.clone())),
     }
@@ -597,30 +587,6 @@ fn create_http_status_check(parsed: &ParsedValidator) -> Result<RuntimeValidator
     Ok(RuntimeValidator::HttpStatusCheck(HttpStatusCheck::new(
         path,
         expected_status,
-    )))
-}
-
-// ============================================
-// DOCKER-BASED VALIDATORS (language-specific)
-// ============================================
-
-// race_detector:bool(true)
-// param 0: expected_clean - true if no races expected
-fn create_race_detector(parsed: &ParsedValidator) -> Result<RuntimeValidator, String> {
-    let expected_clean = parsed.param_as_bool(0).unwrap_or(true);
-
-    Ok(RuntimeValidator::RaceDetector(RaceDetectorValidator::new(
-        expected_clean,
-    )))
-}
-
-// go_compile:bool(true)
-// param 0: expected_success - true if build should succeed
-fn create_go_compile(parsed: &ParsedValidator) -> Result<RuntimeValidator, String> {
-    let expected_success = parsed.param_as_bool(0).unwrap_or(true);
-
-    Ok(RuntimeValidator::GoCompile(GoCompileValidator::new(
-        expected_success,
     )))
 }
 
