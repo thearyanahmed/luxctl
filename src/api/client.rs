@@ -486,18 +486,24 @@ mod tests {
 
     #[test]
     fn test_lighthouse_api_default_no_env_vars() {
-        with_env_vars(&[("LUXCTL_ENV", None), ("LUXCTL_API_BASE_URL", None)], || {
-            let api = LighthouseAPIClient::default();
-            // Should default to DEV with localhost
-            assert_eq!(api.base_url, "http://localhost:8000");
-            assert_eq!(api.api_version, "v1");
-        });
+        with_env_vars(
+            &[("LUXCTL_ENV", None), ("LUXCTL_API_BASE_URL", None)],
+            || {
+                let api = LighthouseAPIClient::default();
+                // Should default to DEV with localhost
+                assert_eq!(api.base_url, "http://localhost:8000");
+                assert_eq!(api.api_version, "v1");
+            },
+        );
     }
 
     #[test]
     fn test_lighthouse_api_default_release_env() {
         with_env_vars(
-            &[("LUXCTL_ENV", Some("RELEASE")), ("LUXCTL_API_BASE_URL", None)],
+            &[
+                ("LUXCTL_ENV", Some("RELEASE")),
+                ("LUXCTL_API_BASE_URL", None),
+            ],
             || {
                 let api = LighthouseAPIClient::default();
                 assert_eq!(api.base_url, "https://projectlighthouse.io");
@@ -509,7 +515,10 @@ mod tests {
     #[test]
     fn test_lighthouse_api_default_release_lowercase() {
         with_env_vars(
-            &[("LUXCTL_ENV", Some("release")), ("LUXCTL_API_BASE_URL", None)],
+            &[
+                ("LUXCTL_ENV", Some("release")),
+                ("LUXCTL_API_BASE_URL", None),
+            ],
             || {
                 let api = LighthouseAPIClient::default();
                 assert_eq!(api.base_url, "https://projectlighthouse.io");
@@ -531,7 +540,10 @@ mod tests {
     #[test]
     fn test_lighthouse_api_default_invalid_env_defaults_to_dev() {
         with_env_vars(
-            &[("LUXCTL_ENV", Some("INVALID")), ("LUXCTL_API_BASE_URL", None)],
+            &[
+                ("LUXCTL_ENV", Some("INVALID")),
+                ("LUXCTL_API_BASE_URL", None),
+            ],
             || {
                 let api = LighthouseAPIClient::default();
                 // Invalid env should default to DEV
@@ -603,17 +615,20 @@ mod tests {
 
     #[test]
     fn test_lighthouse_api_display() {
-        with_env_vars(&[("LUXCTL_ENV", None), ("LUXCTL_API_BASE_URL", None)], || {
-            let api = LighthouseAPIClient::default();
-            let display = format!("{}", api);
+        with_env_vars(
+            &[("LUXCTL_ENV", None), ("LUXCTL_API_BASE_URL", None)],
+            || {
+                let api = LighthouseAPIClient::default();
+                let display = format!("{}", api);
 
-            assert!(display.contains("cli_version:"));
-            assert!(display.contains("base_url:"));
-            assert!(display.contains("api_version:"));
-            assert!(display.contains("env:"));
-            assert!(display.contains(VERSION));
-            assert!(display.contains("v1"));
-        });
+                assert!(display.contains("cli_version:"));
+                assert!(display.contains("base_url:"));
+                assert!(display.contains("api_version:"));
+                assert!(display.contains("env:"));
+                assert!(display.contains(VERSION));
+                assert!(display.contains("v1"));
+            },
+        );
     }
 
     #[test]

@@ -59,9 +59,15 @@ impl CheckResult {
     fn print(&self) {
         let (icon, colored_name) = match self.status {
             CheckStatus::Ok => (format!("[{}]", "X".green()), self.name.green().to_string()),
-            CheckStatus::Warning => (format!("[{}]", "!".yellow()), self.name.yellow().to_string()),
+            CheckStatus::Warning => (
+                format!("[{}]", "!".yellow()),
+                self.name.yellow().to_string(),
+            ),
             CheckStatus::Error => (format!("[{}]", "X".red()), self.name.red().to_string()),
-            CheckStatus::NotInstalled => (format!("[{}]", "O".dimmed()), self.name.dimmed().to_string()),
+            CheckStatus::NotInstalled => (
+                format!("[{}]", "O".dimmed()),
+                self.name.dimmed().to_string(),
+            ),
         };
 
         match &self.detail {
@@ -117,11 +123,15 @@ fn check_system_info() {
         Some(home) => {
             let luxctl_dir = home.join(".luxctl");
             if luxctl_dir.exists() {
-                CheckResult::ok("config dir", Some(luxctl_dir.to_string_lossy().to_string())).print();
+                CheckResult::ok("config dir", Some(luxctl_dir.to_string_lossy().to_string()))
+                    .print();
             } else {
                 CheckResult::warning(
                     "config dir",
-                    Some(format!("{} (will be created)", luxctl_dir.to_string_lossy())),
+                    Some(format!(
+                        "{} (will be created)",
+                        luxctl_dir.to_string_lossy()
+                    )),
                 )
                 .print();
             }
