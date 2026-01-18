@@ -1,6 +1,6 @@
 [package]
 name = "luxctl"
-version = "0.5.6"
+version = "0.5.7"
 edition = "2021"
 description = "Learn by building - CLI for projectlighthouse.io"
 license = "MIT"
