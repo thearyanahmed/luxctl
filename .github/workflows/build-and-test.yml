@@ -16,6 +16,17 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+    - name: Check version consistency
+      run: |
+        CARGO_VERSION=$(grep '^version = ' Cargo.toml | head -1 | sed 's/version = "\(.*\)"/\1/')
+        LIB_VERSION=$(grep 'pub const VERSION' src/lib.rs | sed 's/.*"\(.*\)".*/\1/')
+        echo "Cargo.toml version: $CARGO_VERSION"
+        echo "lib.rs VERSION: $LIB_VERSION"
+        if [ "$CARGO_VERSION" != "$LIB_VERSION" ]; then
+          echo "::error::Version mismatch! Cargo.toml ($CARGO_VERSION) != lib.rs ($LIB_VERSION)"
+          exit 1
+        fi
+        echo "Versions match"
     - name: Lint
       run: make lint
     - name: Build

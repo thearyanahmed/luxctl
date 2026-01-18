@@ -73,7 +73,7 @@ impl CheckResult {
 
 /// run all diagnostic checks
 pub async fn run() -> Result<()> {
-    say!("luxctl doctor v{}\n", VERSION);
+    say!("projectlighthouse CLI v{}\n", VERSION);
 
     // system info
     print_section("System");
