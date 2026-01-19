@@ -49,13 +49,16 @@ pub async fn run_command(cmd: &str) -> Result<CommandResult, String> {
 /// returns Ok(()) if all commands succeed, Err with the failing command on failure
 pub async fn run_commands(commands: &[String]) -> Result<(), (String, CommandResult)> {
     for cmd in commands {
-        let result = run_command(cmd)
-            .await
-            .map_err(|e| (cmd.clone(), CommandResult {
-                exit_code: -1,
-                stdout: String::new(),
-                stderr: e,
-            }))?;
+        let result = run_command(cmd).await.map_err(|e| {
+            (
+                cmd.clone(),
+                CommandResult {
+                    exit_code: -1,
+                    stdout: String::new(),
+                    stderr: e,
+                },
+            )
+        })?;
 
         if !result.success() {
             return Err((cmd.clone(), result));
@@ -75,11 +78,14 @@ pub async fn run_commands_best_effort(commands: &[String]) -> Vec<(String, Comma
                 failures.push((cmd.clone(), result));
             }
             Err(e) => {
-                failures.push((cmd.clone(), CommandResult {
-                    exit_code: -1,
-                    stdout: String::new(),
-                    stderr: e,
-                }));
+                failures.push((
+                    cmd.clone(),
+                    CommandResult {
+                        exit_code: -1,
+                        stdout: String::new(),
+                        stderr: e,
+                    },
+                ));
             }
             _ => {}
         }
