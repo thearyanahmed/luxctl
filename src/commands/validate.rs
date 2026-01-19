@@ -146,7 +146,7 @@ pub async fn validate_all(include_passed: bool, detailed: bool) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::api::TaskStatus;
+    use crate::api::{TaskInputType, TaskStatus};
 
     fn make_task(id: i32, slug: &str, status: TaskStatus, is_locked: bool) -> Task {
         Task {
@@ -155,6 +155,7 @@ mod tests {
             title: format!("Task {}", id),
             description: "Test task".to_string(),
             sort_order: id,
+            input_type: TaskInputType::None,
             scores: "10:20:50".to_string(),
             status,
             is_locked,

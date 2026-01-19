@@ -267,6 +267,7 @@ impl Default for ProjectState {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::api::TaskInputType;
 
     fn test_token() -> &'static str {
         "test-secret-token-123"
@@ -280,6 +281,7 @@ mod tests {
             title: "Test Task".to_string(),
             description: "Description".to_string(),
             sort_order: 1,
+            input_type: TaskInputType::None,
             scores: "5:10:50|10:20:35".to_string(),
             status: TaskStatus::ChallengeAwaits,
             is_locked: false,
