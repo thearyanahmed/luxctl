@@ -318,9 +318,7 @@ mod tests {
     async fn test_run_rejects_arbitrary_url() {
         let executor = DockerExecutor::new().unwrap();
         // even if it looks like a valid image URL, it must be registered
-        let result = executor
-            .run("ghcr.io/evil/malware:latest", ".", None)
-            .await;
+        let result = executor.run("ghcr.io/evil/malware:latest", ".", None).await;
 
         assert!(result.is_err());
         let err = result.unwrap_err();
