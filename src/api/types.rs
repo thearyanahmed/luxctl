@@ -93,6 +93,24 @@ impl Project {
     }
 }
 
+/// task input type (matches Laravel TaskInputType enum)
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TaskInputType {
+    None,
+    Text,
+    Number,
+    Select,
+    Code,
+    MultiSelect,
+}
+
+impl Default for TaskInputType {
+    fn default() -> Self {
+        TaskInputType::None
+    }
+}
+
 /// task progress status (matches Laravel TaskStatus enum)
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -117,6 +135,8 @@ pub struct Task {
     pub title: String,
     pub description: String,
     pub sort_order: i32,
+    #[serde(default)]
+    pub input_type: TaskInputType,
     pub scores: String,
     pub status: TaskStatus,
     pub is_locked: bool,
@@ -130,6 +150,13 @@ pub struct Task {
     /// commands to run after validators (e.g., docker compose down)
     #[serde(default)]
     pub epilogue: Vec<String>,
+}
+
+impl Task {
+    /// check if this task accepts user input
+    pub fn accepts_input(&self) -> bool {
+        self.input_type != TaskInputType::None
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -222,6 +249,46 @@ pub struct AttemptData {
     pub points_achieved: i32,
     pub is_reattempt: bool,
     pub created_at: String,
+}
+
+/// request body for submitting a task answer
+#[derive(Debug, Serialize)]
+pub struct SubmitAnswerRequest {
+    pub answer: serde_json::Value,
+}
+
+impl SubmitAnswerRequest {
+    pub fn text(answer: &str) -> Self {
+        Self {
+            answer: serde_json::Value::String(answer.to_string()),
+        }
+    }
+
+    pub fn number(answer: f64) -> Self {
+        Self {
+            answer: serde_json::json!(answer),
+        }
+    }
+
+    pub fn choices(answers: Vec<&str>) -> Self {
+        Self {
+            answer: serde_json::json!(answers),
+        }
+    }
+}
+
+/// response from submitting a task answer
+#[derive(Debug, Deserialize)]
+pub struct SubmitAnswerResponse {
+    pub success: bool,
+    pub valid: bool,
+    pub message: String,
+    #[serde(default)]
+    pub points_earned: Option<i32>,
+    #[serde(default)]
+    pub attempts: Option<i32>,
+    #[serde(default)]
+    pub already_completed: Option<bool>,
 }
 
 impl ApiUser {
@@ -504,5 +571,110 @@ mod tests {
 
         assert!(task.prologue.is_empty());
         assert!(task.epilogue.is_empty());
+    }
+
+    #[test]
+    fn test_task_with_input_type() {
+        let json = r#"{
+            "id": 1,
+            "slug": "text-input-task",
+            "title": "Text Input Task",
+            "description": "Enter a text answer",
+            "sort_order": 1,
+            "input_type": "text",
+            "scores": "5:10:50",
+            "status": "challenge_awaits",
+            "is_locked": false,
+            "abandoned_deduction": 5,
+            "points_earned": 0,
+            "hints": [],
+            "validators": []
+        }"#;
+
+        let task: Task = serde_json::from_str(json).unwrap();
+
+        assert_eq!(task.input_type, TaskInputType::Text);
+        assert!(task.accepts_input());
+    }
+
+    #[test]
+    fn test_task_without_input_type_defaults_to_none() {
+        let json = r#"{
+            "id": 1,
+            "slug": "no-input-task",
+            "title": "No Input Task",
+            "description": "No input needed",
+            "sort_order": 1,
+            "scores": "5:10:50",
+            "status": "challenge_awaits",
+            "is_locked": false,
+            "abandoned_deduction": 5,
+            "points_earned": 0,
+            "hints": [],
+            "validators": []
+        }"#;
+
+        let task: Task = serde_json::from_str(json).unwrap();
+
+        assert_eq!(task.input_type, TaskInputType::None);
+        assert!(!task.accepts_input());
+    }
+
+    #[test]
+    fn test_submit_answer_request_text() {
+        let request = SubmitAnswerRequest::text("my answer");
+        let json = serde_json::to_string(&request).unwrap();
+        assert!(json.contains("my answer"));
+    }
+
+    #[test]
+    fn test_submit_answer_request_number() {
+        let request = SubmitAnswerRequest::number(42.0);
+        let json = serde_json::to_string(&request).unwrap();
+        assert!(json.contains("42"));
+    }
+
+    #[test]
+    fn test_submit_answer_request_choices() {
+        let request = SubmitAnswerRequest::choices(vec!["a", "b"]);
+        let json = serde_json::to_string(&request).unwrap();
+        assert!(json.contains("[\"a\",\"b\"]"));
+    }
+
+    #[test]
+    fn test_submit_answer_response_deserialize() {
+        let json = r#"{
+            "success": true,
+            "valid": true,
+            "message": "Correct!",
+            "points_earned": 50,
+            "attempts": 2
+        }"#;
+
+        let response: SubmitAnswerResponse = serde_json::from_str(json).unwrap();
+
+        assert!(response.success);
+        assert!(response.valid);
+        assert_eq!(response.message, "Correct!");
+        assert_eq!(response.points_earned, Some(50));
+        assert_eq!(response.attempts, Some(2));
+    }
+
+    #[test]
+    fn test_submit_answer_response_incorrect() {
+        let json = r#"{
+            "success": true,
+            "valid": false,
+            "message": "Incorrect answer.",
+            "attempts": 3
+        }"#;
+
+        let response: SubmitAnswerResponse = serde_json::from_str(json).unwrap();
+
+        assert!(response.success);
+        assert!(!response.valid);
+        assert_eq!(response.message, "Incorrect answer.");
+        assert!(response.points_earned.is_none());
+        assert_eq!(response.attempts, Some(3));
     }
 }
