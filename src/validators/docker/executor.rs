@@ -1,9 +1,13 @@
-//! Docker executor - downloads Dockerfiles and runs containers
+//! Docker executor - runs containers from registered images only
+//!
+//! for security, only images registered in the registry module can be executed.
 
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use tokio::process::Command;
 use tokio::time::{timeout, Duration};
+
+use super::registry::{self, ImageSource};
 
 const DOCKERFILE_BASE_URL: &str =
     "https://raw.githubusercontent.com/thearyanahmed/luxctl/master/docker";
@@ -71,20 +75,41 @@ impl DockerExecutor {
         Ok(cache_path)
     }
 
-    /// build and run a container from a Dockerfile
+    /// build and run a container from a registered image
+    /// rejects unregistered images for security
     pub async fn run(
         &self,
-        dockerfile_name: &str,
+        image_key: &str,
         workspace: &str,
         timeout_secs: Option<u64>,
     ) -> Result<ExecutorResult, String> {
+        // security check: only allow registered images
+        let registered = registry::lookup(image_key).ok_or_else(|| {
+            format!(
+                "image '{}' not registered. available: {:?}",
+                image_key,
+                registry::list_keys()
+            )
+        })?;
+
         // check docker availability
         if !is_docker_available().await {
             return Err("docker not available".to_string());
         }
 
-        // download Dockerfile
-        let dockerfile_path = self.download_dockerfile(dockerfile_name).await?;
+        // handle based on image source type
+        let dockerfile_path = match registered.source {
+            ImageSource::Local(path) => {
+                // download from GitHub (local means bundled in luxctl repo)
+                self.download_dockerfile(path).await?
+            }
+            ImageSource::Remote(image_url) => {
+                // for remote images, pull and run directly
+                return self
+                    .run_remote_image(image_url, workspace, timeout_secs)
+                    .await;
+            }
+        };
 
         // resolve workspace to absolute path
         let workspace_path = std::fs::canonicalize(workspace)
@@ -95,7 +120,7 @@ impl DockerExecutor {
         // generate unique image tag
         let image_tag = format!(
             "luxctl-{}:{}",
-            dockerfile_name.to_lowercase().replace('.', "-"),
+            image_key.to_lowercase().replace('.', "-"),
             std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .map(|d| d.as_secs())
@@ -103,7 +128,7 @@ impl DockerExecutor {
         );
 
         // build the image
-        eprintln!("  building {} (this may take a moment)...", dockerfile_name);
+        eprintln!("  building {} (this may take a moment)...", image_key);
         let build_result = self
             .docker_build(&dockerfile_path, &workspace_str, &image_tag)
             .await?;
@@ -127,6 +152,43 @@ impl DockerExecutor {
             .await;
 
         run_result
+    }
+
+    /// run a pre-built remote image (pulled from registry)
+    async fn run_remote_image(
+        &self,
+        image_url: &str,
+        workspace: &str,
+        timeout_secs: Option<u64>,
+    ) -> Result<ExecutorResult, String> {
+        // resolve workspace to absolute path
+        let workspace_path = std::fs::canonicalize(workspace)
+            .map_err(|e| format!("cannot resolve workspace '{}': {}", workspace, e))?;
+
+        let workspace_str = workspace_path.to_string_lossy();
+
+        // pull the image
+        eprintln!("  pulling {} ...", image_url);
+        let pull_result = Command::new("docker")
+            .args(["pull", image_url])
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .output()
+            .await
+            .map_err(|e| format!("failed to pull image: {}", e))?;
+
+        if !pull_result.status.success() {
+            return Ok(ExecutorResult {
+                exit_code: pull_result.status.code().unwrap_or(-1),
+                stdout: String::from_utf8_lossy(&pull_result.stdout).to_string(),
+                stderr: String::from_utf8_lossy(&pull_result.stderr).to_string(),
+            });
+        }
+
+        // run the container
+        eprintln!("  running validation...");
+        self.docker_run(image_url, &workspace_str, timeout_secs)
+            .await
     }
 
     async fn docker_build(
