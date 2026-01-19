@@ -9,7 +9,8 @@ use crate::{config::Config, VERSION};
 
 use super::types::{
     ApiError, ApiUser, HealthCheckResponse, HintsResponse, PaginatedResponse, Project,
-    SubmitAttemptRequest, SubmitAttemptResponse, UnlockHintResponse,
+    SubmitAnswerRequest, SubmitAnswerResponse, SubmitAttemptRequest, SubmitAttemptResponse,
+    UnlockHintResponse,
 };
 
 pub struct LighthouseAPIClient {
@@ -197,6 +198,18 @@ impl LighthouseAPIClient {
         let endpoint = format!("tasks/{}/hints/{}/unlock", task_slug, hint_uuid);
         // post with empty body
         self.post::<UnlockHintResponse, _>(&endpoint, &serde_json::json!({}), Some(headers))
+            .await
+    }
+
+    /// submit an answer for a task (by slug or uuid)
+    pub async fn submit_answer(
+        &self,
+        task_identifier: &str,
+        request: &SubmitAnswerRequest,
+    ) -> Result<SubmitAnswerResponse> {
+        let headers = self.auth_headers()?;
+        let endpoint = format!("tasks/{}/submit", task_identifier);
+        self.post::<SubmitAnswerResponse, _>(&endpoint, request, Some(headers))
             .await
     }
 }
