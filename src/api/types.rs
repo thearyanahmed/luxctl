@@ -453,4 +453,56 @@ mod tests {
         assert!(response.meta.to.is_none());
         assert_eq!(response.meta.total, 0);
     }
+
+    #[test]
+    fn test_task_with_prologue_and_epilogue() {
+        let json = r#"{
+            "id": 1,
+            "slug": "api-client-test",
+            "title": "API Client Basics",
+            "description": "Test your API client implementation",
+            "sort_order": 1,
+            "scores": "5:10:50",
+            "status": "challenge_awaits",
+            "is_locked": false,
+            "abandoned_deduction": 5,
+            "points_earned": 0,
+            "hints": [],
+            "validators": ["tcp_listening:int(8080)"],
+            "prologue": ["docker compose up -d", "sleep 2"],
+            "epilogue": ["docker compose down"]
+        }"#;
+
+        let task: Task = serde_json::from_str(json).unwrap();
+
+        assert_eq!(task.prologue.len(), 2);
+        assert_eq!(task.prologue[0], "docker compose up -d");
+        assert_eq!(task.prologue[1], "sleep 2");
+        assert_eq!(task.epilogue.len(), 1);
+        assert_eq!(task.epilogue[0], "docker compose down");
+    }
+
+    #[test]
+    fn test_task_without_prologue_epilogue_defaults_to_empty() {
+        // when prologue/epilogue are not present in JSON, they should default to empty
+        let json = r#"{
+            "id": 1,
+            "slug": "simple-task",
+            "title": "Simple Task",
+            "description": "No hooks",
+            "sort_order": 1,
+            "scores": "5:10:50",
+            "status": "challenge_awaits",
+            "is_locked": false,
+            "abandoned_deduction": 5,
+            "points_earned": 0,
+            "hints": [],
+            "validators": []
+        }"#;
+
+        let task: Task = serde_json::from_str(json).unwrap();
+
+        assert!(task.prologue.is_empty());
+        assert!(task.epilogue.is_empty());
+    }
 }

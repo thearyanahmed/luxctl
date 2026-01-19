@@ -302,4 +302,36 @@ mod tests {
         // just verify it doesn't panic
         let _ = is_docker_available().await;
     }
+
+    #[tokio::test]
+    async fn test_run_rejects_unregistered_image() {
+        let executor = DockerExecutor::new().unwrap();
+        let result = executor.run("malicious-image", ".", None).await;
+
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(err.contains("not registered"));
+        assert!(err.contains("malicious-image"));
+    }
+
+    #[tokio::test]
+    async fn test_run_rejects_arbitrary_url() {
+        let executor = DockerExecutor::new().unwrap();
+        // even if it looks like a valid image URL, it must be registered
+        let result = executor
+            .run("ghcr.io/evil/malware:latest", ".", None)
+            .await;
+
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(err.contains("not registered"));
+    }
+
+    #[test]
+    fn test_registered_images_are_known() {
+        // verify our test images are actually registered
+        assert!(registry::is_registered("go1.22"));
+        assert!(registry::is_registered("go1.22-race"));
+        assert!(registry::is_registered("api-client-test"));
+    }
 }
