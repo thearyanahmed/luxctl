@@ -283,7 +283,7 @@ async fn run_epilogue(ui: &RunUI, commands: &[String]) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::api::TaskStatus;
+    use crate::api::{TaskInputType, TaskStatus};
 
     fn make_task_with_hooks(
         prologue: Vec<String>,
@@ -296,6 +296,7 @@ mod tests {
             title: "Test Task".to_string(),
             description: "A test task".to_string(),
             sort_order: 1,
+            input_type: TaskInputType::None,
             scores: "10:20:50".to_string(),
             status: TaskStatus::ChallengeAwaits,
             is_locked: false,
