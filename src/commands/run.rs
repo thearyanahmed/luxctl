@@ -113,11 +113,11 @@ pub async fn run_task_validators(
     // run prologue commands
     if !task.prologue.is_empty() {
         ui.step(&format!(
-            "Running {} prologue commands...",
+            "Running {} setup commands...",
             task.prologue.len()
         ));
         if let Err((cmd, result)) = shell::run_commands(&task.prologue).await {
-            oops!("prologue command failed: {}", cmd);
+            oops!("setup command failed: {}", cmd);
             if !result.stderr.is_empty() {
                 say!("stderr: {}", result.stderr.trim());
             }
@@ -265,12 +265,12 @@ async fn run_epilogue(ui: &RunUI, commands: &[String]) {
     }
 
     ui.blank_line();
-    ui.step(&format!("Running {} epilogue commands...", commands.len()));
+    ui.step(&format!("Running {} cleanup commands...", commands.len()));
 
     let failures = shell::run_commands_best_effort(commands).await;
     for (cmd, result) in failures {
         log::warn!(
-            "epilogue command failed: {} (exit {})",
+            "cleanup command failed: {} (exit {})",
             cmd,
             result.exit_code
         );
