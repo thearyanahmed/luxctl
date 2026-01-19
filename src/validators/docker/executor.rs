@@ -351,7 +351,10 @@ mod tests {
         assert_eq!(sanitize_for_docker_tag("Go1.22"), "go1-22");
         assert_eq!(sanitize_for_docker_tag("foo:bar"), "foo-bar");
         assert_eq!(sanitize_for_docker_tag("foo/bar"), "foo-bar");
-        assert_eq!(sanitize_for_docker_tag("api-client-test"), "api-client-test");
+        assert_eq!(
+            sanitize_for_docker_tag("api-client-test"),
+            "api-client-test"
+        );
         assert_eq!(sanitize_for_docker_tag("test_image"), "test_image");
     }
 }
