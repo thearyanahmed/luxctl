@@ -124,6 +124,12 @@ pub struct Task {
     pub points_earned: i32,
     pub hints: Vec<Hint>,
     pub validators: Vec<String>,
+    /// commands to run before validators (e.g., docker compose up)
+    #[serde(default)]
+    pub prologue: Vec<String>,
+    /// commands to run after validators (e.g., docker compose down)
+    #[serde(default)]
+    pub epilogue: Vec<String>,
 }
 
 #[derive(Debug, Deserialize)]

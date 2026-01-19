@@ -287,6 +287,8 @@ mod tests {
             points_earned: 35,
             hints: vec![],
             validators: vec!["tcp_listening:int(8080)".to_string()],
+            prologue: vec![],
+            epilogue: vec![],
         };
 
         let cached = CachedTask::from_api_task(&api_task);
