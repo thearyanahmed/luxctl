@@ -272,3 +272,91 @@ async fn run_epilogue(ui: &RunUI, commands: &[String]) {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::api::TaskStatus;
+
+    fn make_task_with_hooks(
+        prologue: Vec<String>,
+        epilogue: Vec<String>,
+        validators: Vec<String>,
+    ) -> Task {
+        Task {
+            id: 1,
+            slug: "test-task".to_string(),
+            title: "Test Task".to_string(),
+            description: "A test task".to_string(),
+            sort_order: 1,
+            scores: "10:20:50".to_string(),
+            status: TaskStatus::ChallengeAwaits,
+            is_locked: false,
+            abandoned_deduction: 5,
+            points_earned: 0,
+            hints: vec![],
+            validators,
+            prologue,
+            epilogue,
+        }
+    }
+
+    #[test]
+    fn test_task_with_empty_hooks() {
+        let task = make_task_with_hooks(vec![], vec![], vec![]);
+        assert!(task.prologue.is_empty());
+        assert!(task.epilogue.is_empty());
+    }
+
+    #[test]
+    fn test_task_with_prologue_and_epilogue() {
+        let task = make_task_with_hooks(
+            vec!["docker compose up -d".to_string()],
+            vec!["docker compose down".to_string()],
+            vec!["tcp_listening:int(8080)".to_string()],
+        );
+
+        assert_eq!(task.prologue.len(), 1);
+        assert_eq!(task.epilogue.len(), 1);
+        assert_eq!(task.prologue[0], "docker compose up -d");
+        assert_eq!(task.epilogue[0], "docker compose down");
+    }
+
+    #[tokio::test]
+    async fn test_prologue_stops_on_failure() {
+        let commands = vec![
+            "echo starting".to_string(),
+            "exit 1".to_string(),
+            "echo should not run".to_string(),
+        ];
+
+        let result = shell::run_commands(&commands).await;
+        assert!(result.is_err());
+
+        let (failed_cmd, _) = result.unwrap_err();
+        assert_eq!(failed_cmd, "exit 1");
+    }
+
+    #[tokio::test]
+    async fn test_epilogue_continues_on_failure() {
+        let commands = vec![
+            "exit 1".to_string(),
+            "exit 2".to_string(),
+            "echo still runs".to_string(),
+        ];
+
+        // best_effort continues even when commands fail
+        let failures = shell::run_commands_best_effort(&commands).await;
+
+        // should have 2 failures (exit 1 and exit 2)
+        assert_eq!(failures.len(), 2);
+    }
+
+    #[tokio::test]
+    async fn test_prologue_success_allows_continuation() {
+        let commands = vec!["echo one".to_string(), "echo two".to_string()];
+
+        let result = shell::run_commands(&commands).await;
+        assert!(result.is_ok());
+    }
+}
