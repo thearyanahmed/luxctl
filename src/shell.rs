@@ -17,12 +17,24 @@ impl CommandResult {
     }
 }
 
+/// get platform-specific shell and argument flag
+#[cfg(windows)]
+fn shell_command() -> (&'static str, &'static str) {
+    ("cmd.exe", "/C")
+}
+
+#[cfg(not(windows))]
+fn shell_command() -> (&'static str, &'static str) {
+    ("sh", "-c")
+}
+
 /// run a shell command and capture output
 pub async fn run_command(cmd: &str) -> Result<CommandResult, String> {
     log::debug!("running command: {}", cmd);
 
-    let output = Command::new("sh")
-        .args(["-c", cmd])
+    let (shell, flag) = shell_command();
+    let output = Command::new(shell)
+        .args([flag, cmd])
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .output()
