@@ -162,6 +162,8 @@ mod tests {
             points_earned: 0,
             hints: vec![],
             validators: vec![],
+            prologue: vec![],
+            epilogue: vec![],
         }
     }
 
