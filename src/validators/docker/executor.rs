@@ -117,10 +117,10 @@ impl DockerExecutor {
 
         let workspace_str = workspace_path.to_string_lossy();
 
-        // generate unique image tag
+        // generate unique image tag (sanitize to valid docker tag characters)
         let image_tag = format!(
             "luxctl-{}:{}",
-            image_key.to_lowercase().replace('.', "-"),
+            sanitize_for_docker_tag(image_key),
             std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .map(|d| d.as_secs())
@@ -261,6 +261,18 @@ impl DockerExecutor {
     }
 }
 
+/// sanitize a string to be valid in a docker image tag
+/// docker tags can only contain lowercase letters, digits, underscores, periods, and hyphens
+fn sanitize_for_docker_tag(s: &str) -> String {
+    s.to_lowercase()
+        .chars()
+        .map(|c| match c {
+            'a'..='z' | '0'..='9' | '_' | '-' => c,
+            _ => '-',
+        })
+        .collect()
+}
+
 /// check if docker is available
 pub async fn is_docker_available() -> bool {
     Command::new("docker")
@@ -331,5 +343,15 @@ mod tests {
         assert!(registry::is_registered("go1.22"));
         assert!(registry::is_registered("go1.22-race"));
         assert!(registry::is_registered("api-client-test"));
+    }
+
+    #[test]
+    fn test_sanitize_for_docker_tag() {
+        assert_eq!(sanitize_for_docker_tag("go1.22"), "go1-22");
+        assert_eq!(sanitize_for_docker_tag("Go1.22"), "go1-22");
+        assert_eq!(sanitize_for_docker_tag("foo:bar"), "foo-bar");
+        assert_eq!(sanitize_for_docker_tag("foo/bar"), "foo-bar");
+        assert_eq!(sanitize_for_docker_tag("api-client-test"), "api-client-test");
+        assert_eq!(sanitize_for_docker_tag("test_image"), "test_image");
     }
 }
