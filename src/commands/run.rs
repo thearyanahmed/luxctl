@@ -2,6 +2,7 @@ use color_eyre::eyre::Result;
 
 use crate::api::{LighthouseAPIClient, SubmitAttemptRequest, Task, TaskOutcome, TaskStatus};
 use crate::config::Config;
+use crate::shell;
 use crate::state::ProjectState;
 use crate::tasks::{TestCase, TestResults};
 use crate::ui::RunUI;
@@ -109,9 +110,25 @@ pub async fn run_task_validators(
     ui.header();
     ui.blank_line();
 
+    // run prologue commands
+    if !task.prologue.is_empty() {
+        ui.step(&format!("Running {} prologue commands...", task.prologue.len()));
+        if let Err((cmd, result)) = shell::run_commands(&task.prologue).await {
+            oops!("prologue command failed: {}", cmd);
+            if !result.stderr.is_empty() {
+                say!("stderr: {}", result.stderr.trim());
+            }
+            // run epilogue for cleanup even if prologue fails
+            run_epilogue(&ui, &task.epilogue).await;
+            return Ok(());
+        }
+        ui.blank_line();
+    }
+
     // run validators
     if task.validators.is_empty() {
         ui.step("no validators defined for this task");
+        run_epilogue(&ui, &task.epilogue).await;
         return Ok(());
     }
 
@@ -232,5 +249,26 @@ pub async fn run_task_validators(
         }
     }
 
+    // run epilogue commands (cleanup)
+    run_epilogue(&ui, &task.epilogue).await;
+
     Ok(())
+}
+
+/// run epilogue commands with best-effort (continues even on failure)
+async fn run_epilogue(ui: &RunUI, commands: &[String]) {
+    if commands.is_empty() {
+        return;
+    }
+
+    ui.blank_line();
+    ui.step(&format!("Running {} epilogue commands...", commands.len()));
+
+    let failures = shell::run_commands_best_effort(commands).await;
+    for (cmd, result) in failures {
+        log::warn!("epilogue command failed: {} (exit {})", cmd, result.exit_code);
+        if !result.stderr.is_empty() {
+            log::debug!("stderr: {}", result.stderr.trim());
+        }
+    }
 }
