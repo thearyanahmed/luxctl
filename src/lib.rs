@@ -4,6 +4,7 @@ pub mod commands;
 pub mod config;
 pub mod message;
 pub mod runtime;
+pub mod shell;
 pub mod state;
 pub mod tasks;
 pub mod ui;
