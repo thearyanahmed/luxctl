@@ -1,7 +1,7 @@
 //! Docker validator - runs Dockerfiles and interprets results based on DSL
 
 use crate::config::Config;
-use crate::state::ProjectState;
+use crate::state::LabState;
 use crate::tasks::TestCase;
 
 use super::executor::DockerExecutor;
@@ -168,7 +168,7 @@ impl DockerValidator {
     }
 }
 
-/// get workspace path from project state
+/// get workspace path from lab state
 fn get_workspace() -> PathBuf {
     let config = match Config::load() {
         Ok(c) => c,
@@ -179,13 +179,13 @@ fn get_workspace() -> PathBuf {
         return PathBuf::from(".");
     }
 
-    let state = match ProjectState::load(config.expose_token()) {
+    let state = match LabState::load(config.expose_token()) {
         Ok(s) => s,
         Err(_) => return PathBuf::from("."),
     };
 
     match state.get_active() {
-        Some(project) => PathBuf::from(&project.workspace),
+        Some(lab) => PathBuf::from(&lab.workspace),
         None => PathBuf::from("."),
     }
 }
