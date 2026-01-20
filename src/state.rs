@@ -54,9 +54,9 @@ impl CachedTask {
     }
 }
 
-/// active project with cached task data
+/// active lab with cached task data
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ActiveProject {
+pub struct ActiveLab {
     pub slug: String,
     pub name: String,
     pub fetched_at: DateTime<Utc>,
@@ -71,7 +71,7 @@ fn default_workspace() -> String {
     ".".to_string()
 }
 
-impl ActiveProject {
+impl ActiveLab {
     pub fn total_points(&self) -> i32 {
         self.tasks.iter().map(|t| t.points).sum()
     }
@@ -91,22 +91,20 @@ impl ActiveProject {
 /// internal state file format (includes checksum)
 #[derive(Debug, Serialize, Deserialize)]
 struct StateFile {
-    active_project: Option<ActiveProject>,
+    active_lab: Option<ActiveLab>,
     checksum: String,
 }
 
-/// project state manager with tamper detection
+/// lab state manager with tamper detection
 #[derive(Debug)]
-pub struct ProjectState {
-    pub active_project: Option<ActiveProject>,
+pub struct LabState {
+    pub active_lab: Option<ActiveLab>,
 }
 
-impl ProjectState {
+impl LabState {
     /// create empty state
     pub fn new() -> Self {
-        ProjectState {
-            active_project: None,
-        }
+        LabState { active_lab: None }
     }
 
     /// load state from disk, verifying integrity with HMAC
@@ -115,7 +113,7 @@ impl ProjectState {
         let path = Self::state_path()?;
 
         if !path.exists() {
-            return Ok(ProjectState::new());
+            return Ok(LabState::new());
         }
 
         let content = fs::read_to_string(&path)
@@ -125,17 +123,17 @@ impl ProjectState {
             .map_err(|e| eyre::eyre!("failed to parse state file: {}", e))?;
 
         // verify checksum
-        let expected = Self::compute_checksum(&state_file.active_project, token);
+        let expected = Self::compute_checksum(&state_file.active_lab, token);
         if state_file.checksum != expected {
             log::warn!("state file checksum mismatch, clearing state");
             // tampered or token changed - clear state
-            let empty = ProjectState::new();
+            let empty = LabState::new();
             empty.save(token)?;
             return Ok(empty);
         }
 
-        Ok(ProjectState {
-            active_project: state_file.active_project,
+        Ok(LabState {
+            active_lab: state_file.active_lab,
         })
     }
 
@@ -147,9 +145,9 @@ impl ProjectState {
             fs::create_dir_all(dir)?;
         }
 
-        let checksum = Self::compute_checksum(&self.active_project, token);
+        let checksum = Self::compute_checksum(&self.active_lab, token);
         let state_file = StateFile {
-            active_project: self.active_project.clone(),
+            active_lab: self.active_lab.clone(),
             checksum,
         };
 
@@ -162,7 +160,7 @@ impl ProjectState {
         Ok(())
     }
 
-    /// set active project from API data
+    /// set active lab from API data
     pub fn set_active(
         &mut self,
         slug: &str,
@@ -173,7 +171,7 @@ impl ProjectState {
     ) {
         let cached_tasks: Vec<CachedTask> = tasks.iter().map(CachedTask::from_api_task).collect();
 
-        self.active_project = Some(ActiveProject {
+        self.active_lab = Some(ActiveLab {
             slug: slug.to_string(),
             name: name.to_string(),
             fetched_at: Utc::now(),
@@ -183,56 +181,56 @@ impl ProjectState {
         });
     }
 
-    /// apply a mutation to the active project if one exists
+    /// apply a mutation to the active lab if one exists
     fn with_active_mut<F>(&mut self, f: F)
     where
-        F: FnOnce(&mut ActiveProject),
+        F: FnOnce(&mut ActiveLab),
     {
-        if let Some(ref mut project) = self.active_project {
-            f(project);
+        if let Some(ref mut lab) = self.active_lab {
+            f(lab);
         }
     }
 
-    /// update runtime for active project
+    /// update runtime for active lab
     pub fn set_runtime(&mut self, runtime: &str) {
-        self.with_active_mut(|p| p.runtime = Some(runtime.to_string()));
+        self.with_active_mut(|l| l.runtime = Some(runtime.to_string()));
     }
 
-    /// update workspace for active project
+    /// update workspace for active lab
     pub fn set_workspace(&mut self, workspace: &str) {
-        self.with_active_mut(|p| p.workspace = workspace.to_string());
+        self.with_active_mut(|l| l.workspace = workspace.to_string());
     }
 
-    /// clear active project
+    /// clear active lab
     pub fn clear_active(&mut self) {
-        self.active_project = None;
+        self.active_lab = None;
     }
 
-    /// get reference to active project
-    pub fn get_active(&self) -> Option<&ActiveProject> {
-        self.active_project.as_ref()
+    /// get reference to active lab
+    pub fn get_active(&self) -> Option<&ActiveLab> {
+        self.active_lab.as_ref()
     }
 
     /// update cached tasks (for refresh)
     pub fn refresh_tasks(&mut self, tasks: &[Task]) {
-        self.with_active_mut(|p| {
-            p.tasks = tasks.iter().map(CachedTask::from_api_task).collect();
-            p.fetched_at = Utc::now();
+        self.with_active_mut(|l| {
+            l.tasks = tasks.iter().map(CachedTask::from_api_task).collect();
+            l.fetched_at = Utc::now();
         });
     }
 
     /// update a single task's status (e.g., after successful submission)
     pub fn update_task_status(&mut self, task_id: i32, new_status: TaskStatus) {
-        self.with_active_mut(|p| {
-            if let Some(task) = p.tasks.iter_mut().find(|t| t.id == task_id) {
+        self.with_active_mut(|l| {
+            if let Some(task) = l.tasks.iter_mut().find(|t| t.id == task_id) {
                 task.status = new_status;
             }
         });
     }
 
-    /// compute HMAC-SHA256 checksum of project data
+    /// compute HMAC-SHA256 checksum of lab data
     /// returns empty string if HMAC creation fails (should never happen for SHA256)
-    fn compute_checksum(project: &Option<ActiveProject>, token: &str) -> String {
+    fn compute_checksum(lab: &Option<ActiveLab>, token: &str) -> String {
         // derive key from token + salt
         let key = format!("{}{}", token, HMAC_SALT);
 
@@ -242,8 +240,8 @@ impl ProjectState {
             return String::new();
         };
 
-        // hash the project data as JSON
-        let data = serde_json::to_string(project).unwrap_or_default();
+        // hash the lab data as JSON
+        let data = serde_json::to_string(lab).unwrap_or_default();
         mac.update(data.as_bytes());
 
         let result = mac.finalize();
@@ -258,7 +256,7 @@ impl ProjectState {
     }
 }
 
-impl Default for ProjectState {
+impl Default for LabState {
     fn default() -> Self {
         Self::new()
     }
@@ -304,9 +302,9 @@ mod tests {
 
     #[test]
     fn test_compute_checksum_deterministic() {
-        let project = Some(ActiveProject {
+        let lab = Some(ActiveLab {
             slug: "test".to_string(),
-            name: "Test Project".to_string(),
+            name: "Test Lab".to_string(),
             fetched_at: DateTime::parse_from_rfc3339("2026-01-01T00:00:00Z")
                 .expect("valid date")
                 .with_timezone(&Utc),
@@ -315,58 +313,58 @@ mod tests {
             runtime: None,
         });
 
-        let checksum1 = ProjectState::compute_checksum(&project, test_token());
-        let checksum2 = ProjectState::compute_checksum(&project, test_token());
+        let checksum1 = LabState::compute_checksum(&lab, test_token());
+        let checksum2 = LabState::compute_checksum(&lab, test_token());
 
         assert_eq!(checksum1, checksum2);
     }
 
     #[test]
     fn test_checksum_changes_with_data() {
-        let project1 = Some(ActiveProject {
+        let lab1 = Some(ActiveLab {
             slug: "test1".to_string(),
-            name: "Test Project".to_string(),
+            name: "Test Lab".to_string(),
             fetched_at: Utc::now(),
             tasks: vec![],
             workspace: ".".to_string(),
             runtime: None,
         });
 
-        let project2 = Some(ActiveProject {
+        let lab2 = Some(ActiveLab {
             slug: "test2".to_string(),
-            name: "Test Project".to_string(),
+            name: "Test Lab".to_string(),
             fetched_at: Utc::now(),
             tasks: vec![],
             workspace: ".".to_string(),
             runtime: None,
         });
 
-        let checksum1 = ProjectState::compute_checksum(&project1, test_token());
-        let checksum2 = ProjectState::compute_checksum(&project2, test_token());
+        let checksum1 = LabState::compute_checksum(&lab1, test_token());
+        let checksum2 = LabState::compute_checksum(&lab2, test_token());
 
         assert_ne!(checksum1, checksum2);
     }
 
     #[test]
     fn test_checksum_changes_with_token() {
-        let project = Some(ActiveProject {
+        let lab = Some(ActiveLab {
             slug: "test".to_string(),
-            name: "Test Project".to_string(),
+            name: "Test Lab".to_string(),
             fetched_at: Utc::now(),
             tasks: vec![],
             workspace: ".".to_string(),
             runtime: None,
         });
 
-        let checksum1 = ProjectState::compute_checksum(&project, "token1");
-        let checksum2 = ProjectState::compute_checksum(&project, "token2");
+        let checksum1 = LabState::compute_checksum(&lab, "token1");
+        let checksum2 = LabState::compute_checksum(&lab, "token2");
 
         assert_ne!(checksum1, checksum2);
     }
 
     #[test]
-    fn test_active_project_stats() {
-        let project = ActiveProject {
+    fn test_active_lab_stats() {
+        let lab = ActiveLab {
             slug: "test".to_string(),
             name: "Test".to_string(),
             fetched_at: Utc::now(),
@@ -396,8 +394,8 @@ mod tests {
             runtime: Some("go".to_string()),
         };
 
-        assert_eq!(project.total_points(), 75);
-        assert_eq!(project.earned_points(), 20);
-        assert_eq!(project.completed_count(), 1);
+        assert_eq!(lab.total_points(), 75);
+        assert_eq!(lab.earned_points(), 20);
+        assert_eq!(lab.completed_count(), 1);
     }
 }
