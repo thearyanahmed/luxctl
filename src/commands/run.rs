@@ -3,15 +3,15 @@ use color_eyre::eyre::Result;
 use crate::api::{LighthouseAPIClient, SubmitAttemptRequest, Task, TaskOutcome, TaskStatus};
 use crate::config::Config;
 use crate::shell;
-use crate::state::ProjectState;
+use crate::state::LabState;
 use crate::tasks::{TestCase, TestResults};
 use crate::ui::RunUI;
 use crate::validators::create_validator;
 use crate::{complain, oops, say};
 
-/// handle `luxctlrun --task <slug|number> [--project <slug>]`
+/// handle `luxctl run --task <slug|number> [--lab <slug>]`
 /// task can be specified by slug or by number (1, 01, 2, 02, etc.)
-pub async fn run(task_id: &str, project_slug: Option<&str>, detailed: bool) -> Result<()> {
+pub async fn run(task_id: &str, lab_slug: Option<&str>, detailed: bool) -> Result<()> {
     let config = Config::load()?;
     if !config.has_auth_token() {
         oops!("not authenticated. Run: `luxctl auth --token $token`");
@@ -19,37 +19,37 @@ pub async fn run(task_id: &str, project_slug: Option<&str>, detailed: bool) -> R
     }
 
     let token = config.expose_token().to_string();
-    let mut state = ProjectState::load(&token)?;
+    let mut state = LabState::load(&token)?;
     let client = LighthouseAPIClient::from_config(&config);
 
-    // determine project slug (from arg or active project)
-    let project_slug = match project_slug {
+    // determine lab slug (from arg or active lab)
+    let lab_slug = match lab_slug {
         Some(s) => s.to_string(),
         None => {
-            if let Some(p) = state.get_active() {
-                p.slug.clone()
+            if let Some(l) = state.get_active() {
+                l.slug.clone()
             } else {
-                oops!("no project specified and no active project");
-                say!("use `--project <SLUG>` or run `luxctlproject start --slug <SLUG>` first");
+                oops!("no lab specified and no active lab");
+                say!("use `--lab <SLUG>` or run `luxctl lab start --slug <SLUG>` first");
                 return Ok(());
             }
         }
     };
 
-    // fetch project with tasks
-    let project_data = match client.project_by_slug(&project_slug).await {
-        Ok(p) => p,
+    // fetch lab with tasks
+    let lab_data = match client.lab_by_slug(&lab_slug).await {
+        Ok(l) => l,
         Err(err) => {
-            oops!("failed to fetch project '{}': {}", project_slug, err);
+            oops!("failed to fetch lab '{}': {}", lab_slug, err);
             return Ok(());
         }
     };
 
     // get tasks list
-    let tasks = if let Some(t) = &project_data.tasks {
+    let tasks = if let Some(t) = &lab_data.tasks {
         t
     } else {
-        oops!("project '{}' has no tasks", project_slug);
+        oops!("lab '{}' has no tasks", lab_slug);
         return Ok(());
     };
 
@@ -70,7 +70,7 @@ pub async fn run(task_id: &str, project_slug: Option<&str>, detailed: bool) -> R
         if let Some(t) = tasks.iter().find(|t| t.slug == task_id) {
             t
         } else {
-            oops!("task '{}' not found in project '{}'", task_id, project_slug);
+            oops!("task '{}' not found in lab '{}'", task_id, lab_slug);
             say!("use task number (1, 2, 3...) or slug:");
             for (i, t) in tasks.iter().enumerate() {
                 say!("  {:02}. {}", i + 1, t.slug);
@@ -81,7 +81,7 @@ pub async fn run(task_id: &str, project_slug: Option<&str>, detailed: bool) -> R
 
     run_task_validators(
         &client,
-        &project_data.slug,
+        &lab_data.slug,
         task_data,
         detailed,
         Some((&mut state, &token)),
@@ -93,10 +93,10 @@ pub async fn run(task_id: &str, project_slug: Option<&str>, detailed: bool) -> R
 /// optionally updates cached state when state_ctx is provided
 pub async fn run_task_validators(
     client: &LighthouseAPIClient,
-    project_slug: &str,
+    lab_slug: &str,
     task: &Task,
     _detailed: bool,
-    state_ctx: Option<(&mut ProjectState, &str)>,
+    state_ctx: Option<(&mut LabState, &str)>,
 ) -> Result<()> {
     let ui = RunUI::new(&task.slug, task.validators.len());
 
@@ -217,7 +217,7 @@ pub async fn run_task_validators(
     };
 
     let attempt_request = SubmitAttemptRequest {
-        project_slug: project_slug.to_string(),
+        lab_slug: lab_slug.to_string(),
         task_id: task.id,
         task_outcome: outcome,
         points_achieved: None,

@@ -5,7 +5,7 @@ use std::process::Command;
 
 use crate::api::LighthouseAPIClient;
 use crate::config::Config;
-use crate::state::ProjectState;
+use crate::state::LabState;
 use crate::ui::UI;
 
 /// run all diagnostic checks
@@ -28,9 +28,9 @@ pub async fn run() -> Result<()> {
     UI::section("Development Tools");
     check_dev_tools();
 
-    // active project
-    UI::section("Project State");
-    check_project_state(&config);
+    // active lab
+    UI::section("Lab State");
+    check_lab_state(&config);
 
     UI::blank();
     UI::note("run `luxctl doctor` after installing missing tools to verify");
@@ -208,13 +208,13 @@ fn extract_version(output: &[u8]) -> Option<String> {
     Some(first_line.trim().to_string())
 }
 
-fn check_project_state(config: &Option<Config>) {
+fn check_lab_state(config: &Option<Config>) {
     let Some(config) = config else {
-        UI::warn("project", Some("skipped (not authenticated)"));
+        UI::warn("lab", Some("skipped (not authenticated)"));
         return;
     };
 
-    let state = match ProjectState::load(config.expose_token()) {
+    let state = match LabState::load(config.expose_token()) {
         Ok(s) => s,
         Err(e) => {
             UI::error("state", Some(&format!("failed to load: {}", e)));
@@ -222,20 +222,17 @@ fn check_project_state(config: &Option<Config>) {
         }
     };
 
-    if let Some(project) = state.get_active() {
-        UI::ok("active project", Some(&project.name));
+    if let Some(lab) = state.get_active() {
+        UI::ok("active lab", Some(&lab.name));
 
-        let workspace_path = std::path::Path::new(&project.workspace);
+        let workspace_path = std::path::Path::new(&lab.workspace);
         if workspace_path.exists() {
-            UI::ok("workspace", Some(&project.workspace));
+            UI::ok("workspace", Some(&lab.workspace));
         } else {
-            UI::error(
-                "workspace",
-                Some(&format!("{} (not found)", project.workspace)),
-            );
+            UI::error("workspace", Some(&format!("{} (not found)", lab.workspace)));
         }
 
-        if let Some(rt) = &project.runtime {
+        if let Some(rt) = &lab.runtime {
             UI::ok("runtime", Some(rt));
         } else {
             UI::warn("runtime", Some("not set"));
@@ -243,13 +240,13 @@ fn check_project_state(config: &Option<Config>) {
 
         let progress = format!(
             "{}/{} tasks completed",
-            project.completed_count(),
-            project.tasks.len()
+            lab.completed_count(),
+            lab.tasks.len()
         );
         UI::ok("progress", Some(&progress));
     } else {
-        UI::ok("project", Some("none active"));
-        UI::note("run `luxctl project start --slug <SLUG>` to begin");
+        UI::ok("lab", Some("none active"));
+        UI::note("run `luxctl lab start --slug <SLUG>` to begin");
     }
 }
 
