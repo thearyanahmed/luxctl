@@ -8,7 +8,7 @@ use std::{collections::HashMap, env};
 use crate::{config::Config, VERSION};
 
 use super::types::{
-    ApiError, ApiUser, HealthCheckResponse, HintsResponse, PaginatedResponse, Project,
+    ApiError, ApiUser, HealthCheckResponse, HintsResponse, Lab, PaginatedResponse,
     SubmitAnswerRequest, SubmitAnswerResponse, SubmitAttemptRequest, SubmitAttemptResponse,
     UnlockHintResponse,
 };
@@ -150,11 +150,11 @@ impl LighthouseAPIClient {
         self.get::<ApiUser>("user", None, Some(headers)).await
     }
 
-    pub async fn projects(
+    pub async fn labs(
         &self,
         page: Option<i32>,
         per_page: Option<i32>,
-    ) -> Result<PaginatedResponse<Project>> {
+    ) -> Result<PaginatedResponse<Lab>> {
         let headers = self.auth_headers()?;
 
         let mut query_params = HashMap::new();
@@ -163,14 +163,14 @@ impl LighthouseAPIClient {
         }
         query_params.insert("per_page".to_string(), per_page.unwrap_or(50).to_string());
 
-        self.get::<PaginatedResponse<Project>>("projects", Some(query_params), Some(headers))
+        self.get::<PaginatedResponse<Lab>>("labs", Some(query_params), Some(headers))
             .await
     }
 
-    pub async fn project_by_slug(&self, slug: &str) -> Result<Project> {
+    pub async fn lab_by_slug(&self, slug: &str) -> Result<Lab> {
         let headers = self.auth_headers()?;
-        let endpoint = format!("projects/{}", slug);
-        self.get::<Project>(&endpoint, None, Some(headers)).await
+        let endpoint = format!("labs/{}", slug);
+        self.get::<Lab>(&endpoint, None, Some(headers)).await
     }
 
     pub async fn submit_attempt(
@@ -178,7 +178,7 @@ impl LighthouseAPIClient {
         request: &SubmitAttemptRequest,
     ) -> Result<SubmitAttemptResponse> {
         let headers = self.auth_headers()?;
-        self.post::<SubmitAttemptResponse, _>("projects/attempts", request, Some(headers))
+        self.post::<SubmitAttemptResponse, _>("labs/attempts", request, Some(headers))
             .await
     }
 
