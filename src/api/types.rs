@@ -56,14 +56,14 @@ pub struct UserStats {
 }
 
 #[derive(Debug, Deserialize)]
-pub struct ProjectStats {
+pub struct LabStats {
     pub attempted_count: i32,
     pub succeed_count: i32,
     pub failed_count: i32,
 }
 
 #[derive(Debug, Deserialize)]
-pub struct Project {
+pub struct Lab {
     pub id: i32,
     pub slug: String,
     pub name: String,
@@ -76,7 +76,7 @@ pub struct Project {
     #[serde(default)]
     pub show_tasks: Option<bool>,
     #[serde(default)]
-    pub stats: Option<ProjectStats>,
+    pub stats: Option<LabStats>,
     #[serde(default)]
     pub published_at: Option<String>,
     #[serde(default)]
@@ -87,9 +87,9 @@ pub struct Project {
     pub tasks: Option<Vec<Task>>,
 }
 
-impl Project {
+impl Lab {
     pub fn url(&self) -> String {
-        format!("https://projectlighthouse.io/projects/{}", self.slug)
+        format!("https://projectlighthouse.io/labs/{}", self.slug)
     }
 }
 
@@ -219,7 +219,7 @@ impl std::fmt::Display for TaskOutcome {
 /// request body for submitting a task attempt
 #[derive(Debug, Serialize)]
 pub struct SubmitAttemptRequest {
-    pub project_slug: String,
+    pub lab_slug: String,
     pub task_id: i32,
     pub task_outcome: TaskOutcome,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -239,7 +239,7 @@ pub struct SubmitAttemptResponse {
 pub struct AttemptData {
     pub id: i32,
     pub task_id: i32,
-    pub project_id: i32,
+    pub lab_id: i32,
     pub task_outcome: String,
     pub points_achieved: i32,
     pub is_reattempt: bool,
@@ -314,7 +314,7 @@ mod tests {
     }
 
     #[test]
-    fn test_project_deserialize() {
+    fn test_lab_deserialize() {
         let json = r#"{
             "id": 2,
             "slug": "build-your-own-http-server",
@@ -332,28 +332,28 @@ mod tests {
             "tasks_count": 9
         }"#;
 
-        let project: Project = serde_json::from_str(json).unwrap();
+        let lab: Lab = serde_json::from_str(json).unwrap();
 
-        assert_eq!(project.id, 2);
-        assert_eq!(project.slug, "build-your-own-http-server");
-        assert_eq!(project.name, "Build Your Own Server");
-        assert_eq!(project.is_published, Some(true));
-        assert_eq!(project.is_featured, Some(false));
-        assert_eq!(project.show_tasks, Some(true));
-        let stats = project.stats.unwrap();
+        assert_eq!(lab.id, 2);
+        assert_eq!(lab.slug, "build-your-own-http-server");
+        assert_eq!(lab.name, "Build Your Own Server");
+        assert_eq!(lab.is_published, Some(true));
+        assert_eq!(lab.is_featured, Some(false));
+        assert_eq!(lab.show_tasks, Some(true));
+        let stats = lab.stats.unwrap();
         assert_eq!(stats.attempted_count, 10);
         assert_eq!(stats.succeed_count, 5);
         assert_eq!(stats.failed_count, 3);
-        assert_eq!(project.tasks_count, Some(9));
+        assert_eq!(lab.tasks_count, Some(9));
     }
 
     #[test]
-    fn test_project_with_null_published_at() {
+    fn test_lab_with_null_published_at() {
         let json = r#"{
             "id": 1,
-            "slug": "test-project",
-            "name": "Test Project",
-            "short_description": "A test project",
+            "slug": "test-lab",
+            "name": "Test Lab",
+            "short_description": "A test lab",
             "is_published": false,
             "is_featured": false,
             "show_tasks": false,
@@ -366,13 +366,13 @@ mod tests {
             "tasks_count": 0
         }"#;
 
-        let project: Project = serde_json::from_str(json).unwrap();
+        let lab: Lab = serde_json::from_str(json).unwrap();
 
-        assert!(project.published_at.is_none());
+        assert!(lab.published_at.is_none());
     }
 
     #[test]
-    fn test_project_detail_with_tasks() {
+    fn test_lab_detail_with_tasks() {
         let json = r#"{
             "id": 1,
             "slug": "build-your-own-git",
@@ -403,13 +403,13 @@ mod tests {
             ]
         }"#;
 
-        let project: Project = serde_json::from_str(json).unwrap();
+        let lab: Lab = serde_json::from_str(json).unwrap();
 
-        assert_eq!(project.id, 1);
-        assert_eq!(project.slug, "build-your-own-git");
-        assert_eq!(project.runner_image, Some("local|go|rust|c".to_string()));
+        assert_eq!(lab.id, 1);
+        assert_eq!(lab.slug, "build-your-own-git");
+        assert_eq!(lab.runner_image, Some("local|go|rust|c".to_string()));
 
-        let tasks = project.tasks.unwrap();
+        let tasks = lab.tasks.unwrap();
         assert_eq!(tasks.len(), 1);
         assert_eq!(tasks[0].title, "Initialize a Repository");
         assert_eq!(tasks[0].status, TaskStatus::ChallengeAwaits);
@@ -423,9 +423,9 @@ mod tests {
             "data": [
                 {
                     "id": 1,
-                    "slug": "project-one",
-                    "name": "Project One",
-                    "short_description": "First project",
+                    "slug": "lab-one",
+                    "name": "Lab One",
+                    "short_description": "First lab",
                     "is_published": true,
                     "is_featured": true,
                     "show_tasks": true,
@@ -435,9 +435,9 @@ mod tests {
                 },
                 {
                     "id": 2,
-                    "slug": "project-two",
-                    "name": "Project Two",
-                    "short_description": "Second project",
+                    "slug": "lab-two",
+                    "name": "Lab Two",
+                    "short_description": "Second lab",
                     "is_published": true,
                     "is_featured": false,
                     "show_tasks": false,
@@ -447,38 +447,38 @@ mod tests {
                 }
             ],
             "links": {
-                "first": "http://example.com/api/v1/projects?page=1",
-                "last": "http://example.com/api/v1/projects?page=2",
+                "first": "http://example.com/api/v1/labs?page=1",
+                "last": "http://example.com/api/v1/labs?page=2",
                 "prev": null,
-                "next": "http://example.com/api/v1/projects?page=2"
+                "next": "http://example.com/api/v1/labs?page=2"
             },
             "meta": {
                 "current_page": 1,
                 "from": 1,
                 "last_page": 2,
-                "path": "http://example.com/api/v1/projects",
+                "path": "http://example.com/api/v1/labs",
                 "per_page": 15,
                 "to": 15,
                 "total": 21
             }
         }"#;
 
-        let response: PaginatedResponse<Project> = serde_json::from_str(json).unwrap();
+        let response: PaginatedResponse<Lab> = serde_json::from_str(json).unwrap();
 
         assert_eq!(response.data.len(), 2);
         assert_eq!(response.data[0].id, 1);
-        assert_eq!(response.data[0].slug, "project-one");
+        assert_eq!(response.data[0].slug, "lab-one");
         assert_eq!(response.data[1].id, 2);
-        assert_eq!(response.data[1].slug, "project-two");
+        assert_eq!(response.data[1].slug, "lab-two");
 
         assert_eq!(
             response.links.first,
-            Some("http://example.com/api/v1/projects?page=1".to_string())
+            Some("http://example.com/api/v1/labs?page=1".to_string())
         );
         assert!(response.links.prev.is_none());
         assert_eq!(
             response.links.next,
-            Some("http://example.com/api/v1/projects?page=2".to_string())
+            Some("http://example.com/api/v1/labs?page=2".to_string())
         );
 
         assert_eq!(response.meta.current_page, 1);
@@ -492,8 +492,8 @@ mod tests {
         let json = r#"{
             "data": [],
             "links": {
-                "first": "http://example.com/api/v1/projects?page=1",
-                "last": "http://example.com/api/v1/projects?page=1",
+                "first": "http://example.com/api/v1/labs?page=1",
+                "last": "http://example.com/api/v1/labs?page=1",
                 "prev": null,
                 "next": null
             },
@@ -501,14 +501,14 @@ mod tests {
                 "current_page": 1,
                 "from": null,
                 "last_page": 1,
-                "path": "http://example.com/api/v1/projects",
+                "path": "http://example.com/api/v1/labs",
                 "per_page": 15,
                 "to": null,
                 "total": 0
             }
         }"#;
 
-        let response: PaginatedResponse<Project> = serde_json::from_str(json).unwrap();
+        let response: PaginatedResponse<Lab> = serde_json::from_str(json).unwrap();
 
         assert!(response.data.is_empty());
         assert!(response.meta.from.is_none());
