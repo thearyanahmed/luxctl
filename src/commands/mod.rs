@@ -1,6 +1,6 @@
 pub mod doctor;
 pub mod hints;
-pub mod project;
+pub mod lab;
 pub mod run;
 pub mod task;
 pub mod tasks;
