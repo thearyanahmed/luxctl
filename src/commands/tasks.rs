@@ -3,7 +3,7 @@ use color_eyre::eyre::Result;
 use crate::api::LighthouseAPIClient;
 use crate::config::Config;
 use crate::message::Message;
-use crate::state::ProjectState;
+use crate::state::LabState;
 use crate::ui::UI;
 
 /// handle `luxctl tasks [--refresh]`
@@ -17,32 +17,32 @@ pub async fn list(refresh: bool) -> Result<()> {
         return Ok(());
     }
 
-    let mut state = ProjectState::load(config.expose_token())?;
+    let mut state = LabState::load(config.expose_token())?;
 
-    let project = if let Some(p) = state.get_active() {
-        p.clone()
+    let lab = if let Some(l) = state.get_active() {
+        l.clone()
     } else {
-        UI::error("no active project", None);
-        UI::note("run `luxctl project start --slug <SLUG>` first");
+        UI::error("no active lab", None);
+        UI::note("run `luxctl lab start --slug <SLUG>` first");
         return Ok(());
     };
 
     // refresh from API if requested or no cached tasks
-    if refresh || project.tasks.is_empty() {
+    if refresh || lab.tasks.is_empty() {
         let client = LighthouseAPIClient::from_config(&config);
 
-        let fresh_project = match client.project_by_slug(&project.slug).await {
-            Ok(p) => p,
+        let fresh_lab = match client.lab_by_slug(&lab.slug).await {
+            Ok(l) => l,
             Err(err) => {
                 UI::error(
-                    &format!("failed to fetch project '{}'", project.slug),
+                    &format!("failed to fetch lab '{}'", lab.slug),
                     Some(&format!("{}", err)),
                 );
                 return Ok(());
             }
         };
 
-        if let Some(tasks) = &fresh_project.tasks {
+        if let Some(tasks) = &fresh_lab.tasks {
             state.refresh_tasks(tasks);
             state.save(config.expose_token())?;
         }

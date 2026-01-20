@@ -3,7 +3,7 @@ use color_eyre::eyre::Result;
 use crate::api::LighthouseAPIClient;
 use crate::config::Config;
 use crate::message::Message;
-use crate::state::ProjectState;
+use crate::state::LabState;
 use crate::ui::UI;
 
 /// handle `luxctl task --task <slug|number> [--detailed]`
@@ -17,32 +17,32 @@ pub async fn show(task_id: &str, detailed: bool) -> Result<()> {
         return Ok(());
     }
 
-    let state = ProjectState::load(config.expose_token())?;
+    let state = LabState::load(config.expose_token())?;
     let client = LighthouseAPIClient::from_config(&config);
 
-    let project_slug = if let Some(p) = state.get_active() {
-        p.slug.clone()
+    let lab_slug = if let Some(l) = state.get_active() {
+        l.slug.clone()
     } else {
-        UI::error("no active project", None);
-        UI::note("run `luxctl project start --slug <SLUG>` first");
+        UI::error("no active lab", None);
+        UI::note("run `luxctl lab start --slug <SLUG>` first");
         return Ok(());
     };
 
-    let project_data = match client.project_by_slug(&project_slug).await {
-        Ok(p) => p,
+    let lab_data = match client.lab_by_slug(&lab_slug).await {
+        Ok(l) => l,
         Err(err) => {
             UI::error(
-                &format!("failed to fetch project '{}'", project_slug),
+                &format!("failed to fetch lab '{}'", lab_slug),
                 Some(&format!("{}", err)),
             );
             return Ok(());
         }
     };
 
-    let tasks = if let Some(t) = &project_data.tasks {
+    let tasks = if let Some(t) = &lab_data.tasks {
         t
     } else {
-        UI::error(&format!("project '{}' has no tasks", project_slug), None);
+        UI::error(&format!("lab '{}' has no tasks", lab_slug), None);
         return Ok(());
     };
 
@@ -59,7 +59,7 @@ pub async fn show(task_id: &str, detailed: bool) -> Result<()> {
         t
     } else {
         UI::error(
-            &format!("task '{}' not found in project '{}'", task_id, project_slug),
+            &format!("task '{}' not found in lab '{}'", task_id, lab_slug),
             None,
         );
         return Ok(());

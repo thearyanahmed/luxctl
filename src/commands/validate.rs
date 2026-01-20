@@ -4,7 +4,7 @@ use crate::api::LighthouseAPIClient;
 use crate::api::Task;
 use crate::commands::run::run_task_validators;
 use crate::config::Config;
-use crate::state::ProjectState;
+use crate::state::LabState;
 use crate::ui::RunUI;
 use crate::{oops, say};
 
@@ -51,7 +51,7 @@ pub fn filter_tasks_for_validation<'a>(
     }
 }
 
-/// handle `luxctlvalidate [--all] [--detailed]`
+/// handle `luxctl validate [--all] [--detailed]`
 pub async fn validate_all(include_passed: bool, detailed: bool) -> Result<()> {
     let config = Config::load()?;
     if !config.has_auth_token() {
@@ -60,31 +60,31 @@ pub async fn validate_all(include_passed: bool, detailed: bool) -> Result<()> {
     }
 
     let token = config.expose_token().to_string();
-    let mut state = ProjectState::load(&token)?;
+    let mut state = LabState::load(&token)?;
 
-    let active = if let Some(p) = state.get_active() {
-        p.clone()
+    let active = if let Some(l) = state.get_active() {
+        l.clone()
     } else {
-        oops!("no active project");
-        say!("run `luxctlproject start --slug <SLUG>` first");
+        oops!("no active lab");
+        say!("run `luxctl lab start --slug <SLUG>` first");
         return Ok(());
     };
 
     let client = LighthouseAPIClient::from_config(&config);
 
-    // fetch fresh project data
-    let project = match client.project_by_slug(&active.slug).await {
-        Ok(p) => p,
+    // fetch fresh lab data
+    let lab = match client.lab_by_slug(&active.slug).await {
+        Ok(l) => l,
         Err(err) => {
-            oops!("failed to fetch project: {}", err);
+            oops!("failed to fetch lab: {}", err);
             return Ok(());
         }
     };
 
-    let tasks = if let Some(t) = &project.tasks {
+    let tasks = if let Some(t) = &lab.tasks {
         t
     } else {
-        oops!("project has no tasks");
+        oops!("lab has no tasks");
         return Ok(());
     };
 
@@ -95,7 +95,7 @@ pub async fn validate_all(include_passed: bool, detailed: bool) -> Result<()> {
     // filter tasks
     let filtered = filter_tasks_for_validation(tasks, include_passed);
 
-    say!("validating tasks for: {}", project.name);
+    say!("validating tasks for: {}", lab.name);
 
     if filtered.skipped_completed > 0 {
         say!(
@@ -120,7 +120,7 @@ pub async fn validate_all(include_passed: bool, detailed: bool) -> Result<()> {
         // run validators and submit results (pass state for auto-refresh)
         run_task_validators(
             &client,
-            &project.slug,
+            &lab.slug,
             task,
             detailed,
             Some((&mut state, &token)),
