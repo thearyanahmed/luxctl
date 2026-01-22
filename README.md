@@ -1,6 +1,6 @@
 # luxctl
 
-CLI for [projectlighthouse.io](https://projectlighthouse.io) — learn by building real systems.
+CLI for [projectlighthouse.io](https://projectlighthouse.io) — practical learning for real systems.
 
 ## Install
 
