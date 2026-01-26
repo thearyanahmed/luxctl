@@ -65,6 +65,8 @@ pub struct LabStats {
 #[derive(Debug, Deserialize)]
 pub struct Lab {
     pub id: i32,
+    #[serde(default)]
+    pub uuid: String,
     pub slug: String,
     pub name: String,
     #[serde(default)]
@@ -126,6 +128,8 @@ impl TaskStatus {
 #[derive(Debug, Deserialize)]
 pub struct Task {
     pub id: i32,
+    #[serde(default)]
+    pub uuid: String,
     pub slug: String,
     pub title: String,
     pub description: String,
@@ -134,6 +138,8 @@ pub struct Task {
     pub input_type: TaskInputType,
     pub scores: String,
     pub status: TaskStatus,
+    #[serde(default)]
+    pub is_free: bool,
     pub is_locked: bool,
     pub abandoned_deduction: i32,
     pub points_earned: i32,
@@ -157,6 +163,8 @@ impl Task {
 #[derive(Debug, Deserialize)]
 pub struct Hint {
     pub id: i32,
+    #[serde(default)]
+    pub uuid: String,
     pub text: String,
     pub unlock_criteria: String,
     pub points_deduction: i32,

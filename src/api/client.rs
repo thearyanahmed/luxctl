@@ -235,8 +235,8 @@ struct LighthouseAPIClientBaseURL(String);
 impl LighthouseAPIClientBaseURL {
     pub fn from(base_url: &str, environment: Env) -> Result<Self, String> {
         let pattern = match environment {
-            // DEV: allow localhost or 0.0.0.0 (http or https, any port)
-            Env::DEV => r"^https?://(localhost|0\.0\.0\.0)(:\d+)?(/.*)?$",
+            // DEV: allow localhost, 127.0.0.1, or 0.0.0.0 (http or https, any port)
+            Env::DEV => r"^https?://(localhost|127\.0\.0\.1|0\.0\.0\.0)(:\d+)?(/.*)?$",
             // RELEASE: only allow https://*projectlighthouse.io
             Env::RELEASE => r"^https://([a-zA-Z0-9-]+\.)*projectlighthouse\.io(/.*)?$",
         };
