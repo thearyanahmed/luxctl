@@ -211,6 +211,7 @@ fn create_from_parsed(parsed: &ParsedValidator) -> Result<RuntimeValidator, Stri
         "http_query_encoded" => create_http_query_encoded(parsed),
         "tcp_read_request" => create_tcp_read_request(parsed),
         "http_keepalive" => create_http_keepalive(parsed),
+        "http_connection_close" => create_http_connection_close(parsed),
         _ => Ok(RuntimeValidator::NotImplemented(parsed.name.clone())),
     }
 }
@@ -809,6 +810,13 @@ fn create_http_keepalive(parsed: &ParsedValidator) -> Result<RuntimeValidator, S
     ))
 }
 
+// http_connection_close:bool(true) - verify Connection: close header in response
+fn create_http_connection_close(_parsed: &ParsedValidator) -> Result<RuntimeValidator, String> {
+    Ok(RuntimeValidator::HttpHeaderValue(
+        HttpHeaderValueValidator::new("Connection", "close"),
+    ))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1057,5 +1065,11 @@ mod tests {
     fn test_create_http_keepalive() {
         let validator = create_validator("http_keepalive:int(5)").unwrap();
         assert_eq!(validator.name(), "concurrent_requests");
+    }
+
+    #[test]
+    fn test_create_http_connection_close() {
+        let validator = create_validator("http_connection_close:bool(true)").unwrap();
+        assert_eq!(validator.name(), "http_header_value");
     }
 }
