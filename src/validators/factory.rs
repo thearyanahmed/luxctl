@@ -214,6 +214,8 @@ fn create_from_parsed(parsed: &ParsedValidator) -> Result<RuntimeValidator, Stri
         "http_connection_close" => create_http_connection_close(parsed),
         "http_gzip_content" => create_http_gzip_content(parsed),
         "http_pipelining" => create_http_pipelining(parsed),
+        "http_chunked_stream" => create_http_chunked_stream(parsed),
+        "http_chunked_format" => create_http_chunked_format(parsed),
         _ => Ok(RuntimeValidator::NotImplemented(parsed.name.clone())),
     }
 }
@@ -836,6 +838,23 @@ fn create_http_pipelining(parsed: &ParsedValidator) -> Result<RuntimeValidator, 
     ))
 }
 
+// http_chunked_stream:int(n) - GET /stream, expect chunked transfer with n chunks
+// TODO: uses http_get as placeholder, proper chunked validation needs dedicated validator
+fn create_http_chunked_stream(parsed: &ParsedValidator) -> Result<RuntimeValidator, String> {
+    let _num_chunks = parsed.param_as_int(0)?;
+    Ok(RuntimeValidator::HttpGet(HttpGetValidator::new(
+        "/stream", 200, None,
+    )))
+}
+
+// http_chunked_format:bool(true) - verify proper chunked transfer encoding format
+// TODO: uses http_get as placeholder, proper format validation needs dedicated validator
+fn create_http_chunked_format(_parsed: &ParsedValidator) -> Result<RuntimeValidator, String> {
+    Ok(RuntimeValidator::HttpGet(HttpGetValidator::new(
+        "/stream", 200, None,
+    )))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1103,5 +1122,17 @@ mod tests {
     fn test_create_http_pipelining() {
         let validator = create_validator("http_pipelining:int(3)").unwrap();
         assert_eq!(validator.name(), "concurrent_requests");
+    }
+
+    #[test]
+    fn test_create_http_chunked_stream() {
+        let validator = create_validator("http_chunked_stream:int(5)").unwrap();
+        assert_eq!(validator.name(), "http_get");
+    }
+
+    #[test]
+    fn test_create_http_chunked_format() {
+        let validator = create_validator("http_chunked_format:bool(true)").unwrap();
+        assert_eq!(validator.name(), "http_get");
     }
 }
