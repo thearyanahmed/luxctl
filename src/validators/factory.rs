@@ -202,6 +202,7 @@ fn create_from_parsed(parsed: &ParsedValidator) -> Result<RuntimeValidator, Stri
         "http_user_agent" => create_http_user_agent(parsed),
         "http_concurrent_clients" => create_http_concurrent_clients(parsed),
         "http_query_param" => create_http_query_param(parsed),
+        "http_query_missing" => create_http_query_missing(parsed),
         _ => Ok(RuntimeValidator::NotImplemented(parsed.name.clone())),
     }
 }
@@ -711,6 +712,14 @@ fn create_http_query_param(parsed: &ParsedValidator) -> Result<RuntimeValidator,
     )))
 }
 
+// http_query_missing:int(status) - GET /search with no params, expect status
+fn create_http_query_missing(parsed: &ParsedValidator) -> Result<RuntimeValidator, String> {
+    let status = parsed.param_as_int(0)? as u16;
+    Ok(RuntimeValidator::HttpGet(HttpGetValidator::new(
+        "/search", status, None,
+    )))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -897,6 +906,12 @@ mod tests {
     fn test_create_http_query_param() {
         let validator =
             create_validator("http_query_param:string(q),string(hello),string(hello)").unwrap();
+        assert_eq!(validator.name(), "http_get");
+    }
+
+    #[test]
+    fn test_create_http_query_missing() {
+        let validator = create_validator("http_query_missing:int(400)").unwrap();
         assert_eq!(validator.name(), "http_get");
     }
 }
