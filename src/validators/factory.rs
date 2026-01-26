@@ -203,6 +203,7 @@ fn create_from_parsed(parsed: &ParsedValidator) -> Result<RuntimeValidator, Stri
         "http_concurrent_clients" => create_http_concurrent_clients(parsed),
         "http_query_param" => create_http_query_param(parsed),
         "http_query_missing" => create_http_query_missing(parsed),
+        "http_file_not_found" => create_http_file_not_found(parsed),
         _ => Ok(RuntimeValidator::NotImplemented(parsed.name.clone())),
     }
 }
@@ -720,6 +721,16 @@ fn create_http_query_missing(parsed: &ParsedValidator) -> Result<RuntimeValidato
     )))
 }
 
+// http_file_not_found:string(filename),int(status) - GET /files/filename, expect status
+fn create_http_file_not_found(parsed: &ParsedValidator) -> Result<RuntimeValidator, String> {
+    let filename = parsed.param_as_string(0)?;
+    let status = parsed.param_as_int(1)? as u16;
+    let path = format!("/files/{}", filename);
+    Ok(RuntimeValidator::HttpGet(HttpGetValidator::new(
+        &path, status, None,
+    )))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -912,6 +923,13 @@ mod tests {
     #[test]
     fn test_create_http_query_missing() {
         let validator = create_validator("http_query_missing:int(400)").unwrap();
+        assert_eq!(validator.name(), "http_get");
+    }
+
+    #[test]
+    fn test_create_http_file_not_found() {
+        let validator =
+            create_validator("http_file_not_found:string(missing.txt),int(404)").unwrap();
         assert_eq!(validator.name(), "http_get");
     }
 }
