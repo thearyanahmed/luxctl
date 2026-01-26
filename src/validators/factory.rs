@@ -198,6 +198,7 @@ fn create_from_parsed(parsed: &ParsedValidator) -> Result<RuntimeValidator, Stri
         "http_header_server" => create_http_header_server(parsed),
         "http_header_date" => create_http_header_date(parsed),
         "http_header_connection" => create_http_header_connection(parsed),
+        "http_echo" => create_http_echo(parsed),
         _ => Ok(RuntimeValidator::NotImplemented(parsed.name.clone())),
     }
 }
@@ -659,6 +660,18 @@ fn create_http_header_connection(parsed: &ParsedValidator) -> Result<RuntimeVali
     ))
 }
 
+// http_echo:string(input),string(expected) - GET /echo/{input}, verify body equals expected
+fn create_http_echo(parsed: &ParsedValidator) -> Result<RuntimeValidator, String> {
+    let input = parsed.param_as_string(0)?;
+    let expected = parsed.param_as_string(1)?;
+    let path = format!("/echo/{}", input);
+    Ok(RuntimeValidator::HttpGet(HttpGetValidator::new(
+        &path,
+        200,
+        Some(expected.to_string()),
+    )))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -820,5 +833,11 @@ mod tests {
     fn test_create_http_header_connection() {
         let validator = create_validator("http_header_connection:string(close)").unwrap();
         assert_eq!(validator.name(), "http_header_value");
+    }
+
+    #[test]
+    fn test_create_http_echo() {
+        let validator = create_validator("http_echo:string(hello),string(hello)").unwrap();
+        assert_eq!(validator.name(), "http_get");
     }
 }
