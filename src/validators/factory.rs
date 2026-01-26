@@ -197,6 +197,7 @@ fn create_from_parsed(parsed: &ParsedValidator) -> Result<RuntimeValidator, Stri
         "http_path" => create_http_get(parsed),
         "http_header_server" => create_http_header_server(parsed),
         "http_header_date" => create_http_header_date(parsed),
+        "http_header_connection" => create_http_header_connection(parsed),
         _ => Ok(RuntimeValidator::NotImplemented(parsed.name.clone())),
     }
 }
@@ -650,6 +651,14 @@ fn create_http_header_date(parsed: &ParsedValidator) -> Result<RuntimeValidator,
     ))
 }
 
+// http_header_connection:string(close) - check Connection header has given value
+fn create_http_header_connection(parsed: &ParsedValidator) -> Result<RuntimeValidator, String> {
+    let expected_value = parsed.param_as_string(0)?;
+    Ok(RuntimeValidator::HttpHeaderValue(
+        HttpHeaderValueValidator::new("Connection", expected_value),
+    ))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -805,5 +814,11 @@ mod tests {
     fn test_create_http_header_date() {
         let validator = create_validator("http_header_date:bool(true)").unwrap();
         assert_eq!(validator.name(), "http_header_present");
+    }
+
+    #[test]
+    fn test_create_http_header_connection() {
+        let validator = create_validator("http_header_connection:string(close)").unwrap();
+        assert_eq!(validator.name(), "http_header_value");
     }
 }
