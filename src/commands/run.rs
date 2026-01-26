@@ -292,6 +292,7 @@ mod tests {
     ) -> Task {
         Task {
             id: 1,
+            uuid: String::new(),
             slug: "test-task".to_string(),
             title: "Test Task".to_string(),
             description: "A test task".to_string(),
@@ -299,6 +300,7 @@ mod tests {
             input_type: TaskInputType::None,
             scores: "10:20:50".to_string(),
             status: TaskStatus::ChallengeAwaits,
+            is_free: false,
             is_locked: false,
             abandoned_deduction: 5,
             points_earned: 0,

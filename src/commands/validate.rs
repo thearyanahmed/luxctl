@@ -151,6 +151,7 @@ mod tests {
     fn make_task(id: i32, slug: &str, status: TaskStatus, is_locked: bool) -> Task {
         Task {
             id,
+            uuid: String::new(),
             slug: slug.to_string(),
             title: format!("Task {}", id),
             description: "Test task".to_string(),
@@ -158,6 +159,7 @@ mod tests {
             input_type: TaskInputType::None,
             scores: "10:20:50".to_string(),
             status,
+            is_free: false,
             is_locked,
             abandoned_deduction: 5,
             points_earned: 0,

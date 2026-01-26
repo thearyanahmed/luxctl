@@ -275,6 +275,7 @@ mod tests {
     fn test_cached_task_from_api_task() {
         let api_task = Task {
             id: 1,
+            uuid: String::new(),
             slug: "test-task".to_string(),
             title: "Test Task".to_string(),
             description: "Description".to_string(),
@@ -282,6 +283,7 @@ mod tests {
             input_type: TaskInputType::None,
             scores: "5:10:50|10:20:35".to_string(),
             status: TaskStatus::ChallengeAwaits,
+            is_free: false,
             is_locked: false,
             abandoned_deduction: 5,
             points_earned: 35,

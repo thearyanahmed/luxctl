@@ -226,6 +226,8 @@ fn create_from_parsed(parsed: &ParsedValidator) -> Result<RuntimeValidator, Stri
         "http_pipelining" => create_http_pipelining(parsed),
         "http_chunked_stream" => create_http_chunked_stream(parsed),
         "http_chunked_format" => create_http_chunked_format(parsed),
+        "http_file_post" => create_http_file_post(parsed),
+        "http_file_verify" => create_http_file_verify(parsed),
         _ => Ok(RuntimeValidator::NotImplemented(parsed.name.clone())),
     }
 }
@@ -862,6 +864,31 @@ fn create_http_chunked_format(_parsed: &ParsedValidator) -> Result<RuntimeValida
     )))
 }
 
+// http_file_post:string(filename),string(content),int(status) - POST to /files/filename
+fn create_http_file_post(parsed: &ParsedValidator) -> Result<RuntimeValidator, String> {
+    let filename = parsed.param_as_string(0)?;
+    let content = parsed.param_as_string(1)?;
+    let expected_status = parsed.param_as_int(2)? as u16;
+    let path = format!("/files/{}", filename);
+    Ok(RuntimeValidator::HttpPostFile(HttpPostFileValidator::new(
+        &path,
+        content,
+        expected_status,
+    )))
+}
+
+// http_file_verify:string(filename),string(expected_content) - GET /files/filename, verify body
+fn create_http_file_verify(parsed: &ParsedValidator) -> Result<RuntimeValidator, String> {
+    let filename = parsed.param_as_string(0)?;
+    let expected_content = parsed.param_as_string(1)?;
+    let path = format!("/files/{}", filename);
+    Ok(RuntimeValidator::HttpGet(HttpGetValidator::new(
+        &path,
+        200,
+        Some(expected_content.to_string()),
+    )))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1141,5 +1168,20 @@ mod tests {
     fn test_create_http_chunked_format() {
         let validator = create_validator("http_chunked_format:bool(true)").unwrap();
         assert_eq!(validator.name(), "http_chunked");
+    }
+
+    #[test]
+    fn test_create_http_file_post() {
+        let validator =
+            create_validator("http_file_post:string(upload.txt),string(test data),int(201)")
+                .unwrap();
+        assert_eq!(validator.name(), "http_post_file");
+    }
+
+    #[test]
+    fn test_create_http_file_verify() {
+        let validator =
+            create_validator("http_file_verify:string(upload.txt),string(test data)").unwrap();
+        assert_eq!(validator.name(), "http_get");
     }
 }
