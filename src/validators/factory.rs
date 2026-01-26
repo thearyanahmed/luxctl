@@ -195,6 +195,7 @@ fn create_from_parsed(parsed: &ParsedValidator) -> Result<RuntimeValidator, Stri
         "http_path_root" => create_http_path_root(parsed),
         "http_path_unknown" => create_http_path_unknown(parsed),
         "http_path" => create_http_get(parsed),
+        "http_header_server" => create_http_header_server(parsed),
         _ => Ok(RuntimeValidator::NotImplemented(parsed.name.clone())),
     }
 }
@@ -632,6 +633,14 @@ fn create_http_path_unknown(parsed: &ParsedValidator) -> Result<RuntimeValidator
     )))
 }
 
+// http_header_server:bool(true) - check Server header is present
+fn create_http_header_server(parsed: &ParsedValidator) -> Result<RuntimeValidator, String> {
+    let should_exist = parsed.param_as_bool(0)?;
+    Ok(RuntimeValidator::HttpHeaderPresent(
+        HttpHeaderPresentValidator::new("Server", should_exist),
+    ))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -775,5 +784,11 @@ mod tests {
         let validator =
             create_validator("http_path:string(/health),int(200),string(healthy)").unwrap();
         assert_eq!(validator.name(), "http_get");
+    }
+
+    #[test]
+    fn test_create_http_header_server() {
+        let validator = create_validator("http_header_server:bool(true)").unwrap();
+        assert_eq!(validator.name(), "http_header_present");
     }
 }
