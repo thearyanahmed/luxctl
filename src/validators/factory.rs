@@ -213,6 +213,7 @@ fn create_from_parsed(parsed: &ParsedValidator) -> Result<RuntimeValidator, Stri
         "http_keepalive" => create_http_keepalive(parsed),
         "http_connection_close" => create_http_connection_close(parsed),
         "http_gzip_content" => create_http_gzip_content(parsed),
+        "http_pipelining" => create_http_pipelining(parsed),
         _ => Ok(RuntimeValidator::NotImplemented(parsed.name.clone())),
     }
 }
@@ -826,6 +827,15 @@ fn create_http_gzip_content(parsed: &ParsedValidator) -> Result<RuntimeValidator
     ))
 }
 
+// http_pipelining:int(n) - send n requests without waiting for responses
+// TODO: uses concurrent requests as placeholder, proper pipelining needs dedicated validator
+fn create_http_pipelining(parsed: &ParsedValidator) -> Result<RuntimeValidator, String> {
+    let num_requests = parsed.param_as_int(0)? as u32;
+    Ok(RuntimeValidator::ConcurrentRequests(
+        ConcurrentRequestsValidator::new(num_requests, "/", 200),
+    ))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1087,5 +1097,11 @@ mod tests {
         let validator =
             create_validator("http_gzip_content:string(/compressed),string(hello)").unwrap();
         assert_eq!(validator.name(), "http_get_compressed");
+    }
+
+    #[test]
+    fn test_create_http_pipelining() {
+        let validator = create_validator("http_pipelining:int(3)").unwrap();
+        assert_eq!(validator.name(), "concurrent_requests");
     }
 }
