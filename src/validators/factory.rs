@@ -199,6 +199,7 @@ fn create_from_parsed(parsed: &ParsedValidator) -> Result<RuntimeValidator, Stri
         "http_header_date" => create_http_header_date(parsed),
         "http_header_connection" => create_http_header_connection(parsed),
         "http_echo" => create_http_echo(parsed),
+        "http_user_agent" => create_http_user_agent(parsed),
         _ => Ok(RuntimeValidator::NotImplemented(parsed.name.clone())),
     }
 }
@@ -672,6 +673,21 @@ fn create_http_echo(parsed: &ParsedValidator) -> Result<RuntimeValidator, String
     )))
 }
 
+// http_user_agent:string(agent),string(expected) - GET /user-agent with User-Agent header
+fn create_http_user_agent(parsed: &ParsedValidator) -> Result<RuntimeValidator, String> {
+    let agent = parsed.param_as_string(0)?;
+    let expected = parsed.param_as_string(1)?;
+    Ok(RuntimeValidator::HttpGetWithHeader(
+        HttpGetWithHeaderValidator::new(
+            "/user-agent",
+            "User-Agent",
+            agent,
+            200,
+            Some(expected.to_string()),
+        ),
+    ))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -839,5 +855,12 @@ mod tests {
     fn test_create_http_echo() {
         let validator = create_validator("http_echo:string(hello),string(hello)").unwrap();
         assert_eq!(validator.name(), "http_get");
+    }
+
+    #[test]
+    fn test_create_http_user_agent() {
+        let validator =
+            create_validator("http_user_agent:string(test-agent),string(test-agent)").unwrap();
+        assert_eq!(validator.name(), "http_get_with_header");
     }
 }
