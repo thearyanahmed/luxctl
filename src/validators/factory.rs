@@ -208,6 +208,7 @@ fn create_from_parsed(parsed: &ParsedValidator) -> Result<RuntimeValidator, Stri
         "http_gzip_encoding" => create_http_gzip_encoding(parsed),
         "http_file_get" => create_http_file_get_alias(parsed),
         "http_file_traversal" => create_http_file_traversal(parsed),
+        "http_query_encoded" => create_http_query_encoded(parsed),
         _ => Ok(RuntimeValidator::NotImplemented(parsed.name.clone())),
     }
 }
@@ -778,6 +779,18 @@ fn create_http_file_traversal(parsed: &ParsedValidator) -> Result<RuntimeValidat
     )))
 }
 
+// http_query_encoded:string(encoded),string(decoded) - GET /search?q=encoded, verify decoding
+fn create_http_query_encoded(parsed: &ParsedValidator) -> Result<RuntimeValidator, String> {
+    let encoded = parsed.param_as_string(0)?;
+    let decoded = parsed.param_as_string(1)?;
+    let path = format!("/search?q={}", encoded);
+    Ok(RuntimeValidator::HttpGet(HttpGetValidator::new(
+        &path,
+        200,
+        Some(decoded.to_string()),
+    )))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1005,6 +1018,14 @@ mod tests {
     fn test_create_http_file_traversal() {
         let validator =
             create_validator("http_file_traversal:string(../etc/passwd),int(400)").unwrap();
+        assert_eq!(validator.name(), "http_get");
+    }
+
+    #[test]
+    fn test_create_http_query_encoded() {
+        let validator =
+            create_validator("http_query_encoded:string(hello%20world),string(hello world)")
+                .unwrap();
         assert_eq!(validator.name(), "http_get");
     }
 }
