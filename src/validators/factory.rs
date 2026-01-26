@@ -212,6 +212,7 @@ fn create_from_parsed(parsed: &ParsedValidator) -> Result<RuntimeValidator, Stri
         "tcp_read_request" => create_tcp_read_request(parsed),
         "http_keepalive" => create_http_keepalive(parsed),
         "http_connection_close" => create_http_connection_close(parsed),
+        "http_gzip_content" => create_http_gzip_content(parsed),
         _ => Ok(RuntimeValidator::NotImplemented(parsed.name.clone())),
     }
 }
@@ -817,6 +818,14 @@ fn create_http_connection_close(_parsed: &ParsedValidator) -> Result<RuntimeVali
     ))
 }
 
+// http_gzip_content:string(path),string(expected) - decompress gzip body, verify content
+fn create_http_gzip_content(parsed: &ParsedValidator) -> Result<RuntimeValidator, String> {
+    let path = parsed.param_as_string(0)?;
+    Ok(RuntimeValidator::HttpGetCompressed(
+        HttpGetCompressedValidator::new(path, "gzip"),
+    ))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1071,5 +1080,12 @@ mod tests {
     fn test_create_http_connection_close() {
         let validator = create_validator("http_connection_close:bool(true)").unwrap();
         assert_eq!(validator.name(), "http_header_value");
+    }
+
+    #[test]
+    fn test_create_http_gzip_content() {
+        let validator =
+            create_validator("http_gzip_content:string(/compressed),string(hello)").unwrap();
+        assert_eq!(validator.name(), "http_get_compressed");
     }
 }
