@@ -200,6 +200,7 @@ fn create_from_parsed(parsed: &ParsedValidator) -> Result<RuntimeValidator, Stri
         "http_header_connection" => create_http_header_connection(parsed),
         "http_echo" => create_http_echo(parsed),
         "http_user_agent" => create_http_user_agent(parsed),
+        "http_concurrent_clients" => create_http_concurrent_clients(parsed),
         _ => Ok(RuntimeValidator::NotImplemented(parsed.name.clone())),
     }
 }
@@ -688,6 +689,14 @@ fn create_http_user_agent(parsed: &ParsedValidator) -> Result<RuntimeValidator, 
     ))
 }
 
+// http_concurrent_clients:int(n) - open n connections simultaneously
+fn create_http_concurrent_clients(parsed: &ParsedValidator) -> Result<RuntimeValidator, String> {
+    let num_clients = parsed.param_as_int(0)? as u32;
+    Ok(RuntimeValidator::ConcurrentRequests(
+        ConcurrentRequestsValidator::new(num_clients, "/", 200),
+    ))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -862,5 +871,11 @@ mod tests {
         let validator =
             create_validator("http_user_agent:string(test-agent),string(test-agent)").unwrap();
         assert_eq!(validator.name(), "http_get_with_header");
+    }
+
+    #[test]
+    fn test_create_http_concurrent_clients() {
+        let validator = create_validator("http_concurrent_clients:int(5)").unwrap();
+        assert_eq!(validator.name(), "concurrent_requests");
     }
 }
