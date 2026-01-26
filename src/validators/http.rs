@@ -1,6 +1,6 @@
 use crate::tasks::TestCase;
 use serde_json::Value as JsonValue;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::io::{AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::net::TcpStream;
 use tokio::time::{timeout, Duration};
 
@@ -1104,6 +1104,83 @@ impl HttpChunkedValidator {
 
         Ok(TestCase {
             name: format!("GET {} chunked transfer", self.path),
+            result,
+        })
+    }
+}
+
+/// Validator: HTTP pipelining - send multiple requests without waiting for responses
+pub struct HttpPipeliningValidator {
+    pub port: u16,
+    pub num_requests: u32,
+    pub path: String,
+}
+
+impl HttpPipeliningValidator {
+    pub fn new(num_requests: u32, path: &str) -> Self {
+        Self {
+            port: DEFAULT_PORT,
+            num_requests,
+            path: path.to_string(),
+        }
+    }
+
+    pub async fn validate(&self) -> Result<TestCase, String> {
+        let addr = format!("127.0.0.1:{}", self.port);
+        let stream = timeout(DEFAULT_TIMEOUT, TcpStream::connect(&addr))
+            .await
+            .map_err(|_| "connection timeout")?
+            .map_err(|e| format!("failed to connect: {}", e))?;
+
+        let mut stream = BufReader::new(stream);
+
+        // build all requests upfront
+        let mut all_requests = String::new();
+        for _ in 0..self.num_requests {
+            all_requests.push_str(&format!(
+                "GET {} HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: keep-alive\r\n\r\n",
+                self.path
+            ));
+        }
+
+        // send ALL requests at once without waiting for responses (pipelining)
+        if let Err(e) = stream.get_mut().write_all(all_requests.as_bytes()).await {
+            return Err(format!("failed to send pipelined requests: {}", e));
+        }
+
+        // now read all responses
+        let mut successes = 0u32;
+        for i in 0..self.num_requests {
+            let mut buf = vec![0u8; 8192];
+            let read_result = timeout(DEFAULT_TIMEOUT, stream.read(&mut buf)).await;
+
+            match read_result {
+                Ok(Ok(n)) if n > 0 => {
+                    let response_str = String::from_utf8_lossy(&buf[..n]);
+                    if response_str.contains("HTTP/1.") && response_str.contains("200") {
+                        successes += 1;
+                    }
+                }
+                Ok(Ok(_)) => return Err(format!("connection closed before response {}", i + 1)),
+                Ok(Err(e)) => return Err(format!("read error on response {}: {}", i + 1, e)),
+                Err(_) => return Err(format!("timeout waiting for response {}", i + 1)),
+            }
+        }
+
+        let result = if successes == self.num_requests {
+            Ok(format!(
+                "all {} pipelined requests received responses",
+                self.num_requests
+            ))
+        } else {
+            Err(format!(
+                "only {}/{} pipelined requests received responses",
+                successes, self.num_requests
+            ))
+        };
+
+        Ok(TestCase {
+            name: format!("{} pipelined requests", self.num_requests),
             result,
         })
     }
