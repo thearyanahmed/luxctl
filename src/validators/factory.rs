@@ -193,6 +193,7 @@ fn create_from_parsed(parsed: &ParsedValidator) -> Result<RuntimeValidator, Stri
         "http_status_check" => create_http_status_check(parsed),
         "docker" => create_docker(parsed),
         "http_path_root" => create_http_path_root(parsed),
+        "http_path_unknown" => create_http_path_unknown(parsed),
         _ => Ok(RuntimeValidator::NotImplemented(parsed.name.clone())),
     }
 }
@@ -616,7 +617,15 @@ fn create_docker(parsed: &ParsedValidator) -> Result<RuntimeValidator, String> {
 fn create_http_path_root(parsed: &ParsedValidator) -> Result<RuntimeValidator, String> {
     let status = parsed.param_as_int(0)? as u16;
     Ok(RuntimeValidator::HttpGet(HttpGetValidator::new(
-        "/",
+        "/", status, None,
+    )))
+}
+
+// http_path_unknown:int(404) - GET to nonexistent path, expect given status
+fn create_http_path_unknown(parsed: &ParsedValidator) -> Result<RuntimeValidator, String> {
+    let status = parsed.param_as_int(0)? as u16;
+    Ok(RuntimeValidator::HttpGet(HttpGetValidator::new(
+        "/nonexistent-path-for-testing",
         status,
         None,
     )))
@@ -751,6 +760,12 @@ mod tests {
     #[test]
     fn test_create_http_path_root() {
         let validator = create_validator("http_path_root:int(200)").unwrap();
+        assert_eq!(validator.name(), "http_get");
+    }
+
+    #[test]
+    fn test_create_http_path_unknown() {
+        let validator = create_validator("http_path_unknown:int(404)").unwrap();
         assert_eq!(validator.name(), "http_get");
     }
 }
