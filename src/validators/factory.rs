@@ -5,8 +5,8 @@ use super::http::{
     ConcurrentRequestsValidator, HttpChunkedValidator, HttpContentTypeValidator,
     HttpGetCompressedValidator, HttpGetFileValidator, HttpGetValidator, HttpGetWithHeaderValidator,
     HttpHeaderPresentValidator, HttpHeaderValueValidator, HttpJsonExistsValidator,
-    HttpJsonFieldValidator, HttpKeepaliveValidator, HttpPostFileValidator, HttpPostJsonValidator,
-    HttpStatusValidator, RateLimitValidator,
+    HttpJsonFieldValidator, HttpKeepaliveValidator, HttpPipeliningValidator, HttpPostFileValidator,
+    HttpPostJsonValidator, HttpStatusValidator, RateLimitValidator,
 };
 use super::parser::{parse_validator, ParsedValidator};
 use super::port::PortValidator;
@@ -61,6 +61,7 @@ pub enum RuntimeValidator {
     HttpContentType(HttpContentTypeValidator),
     HttpKeepalive(HttpKeepaliveValidator),
     HttpChunked(HttpChunkedValidator),
+    HttpPipelining(HttpPipeliningValidator),
     // placeholder for validators not yet implemented
     NotImplemented(String),
 }
@@ -106,6 +107,7 @@ impl RuntimeValidator {
             RuntimeValidator::HttpContentType(v) => v.validate().await,
             RuntimeValidator::HttpKeepalive(v) => v.validate().await,
             RuntimeValidator::HttpChunked(v) => v.validate().await,
+            RuntimeValidator::HttpPipelining(v) => v.validate().await,
             RuntimeValidator::NotImplemented(name) => Ok(TestCase {
                 name: format!("validator '{}'", name),
                 result: Err(format!("validator '{}' not implemented yet", name)),
@@ -153,6 +155,7 @@ impl RuntimeValidator {
             RuntimeValidator::HttpContentType(_) => "http_content_type",
             RuntimeValidator::HttpKeepalive(_) => "http_keepalive",
             RuntimeValidator::HttpChunked(_) => "http_chunked",
+            RuntimeValidator::HttpPipelining(_) => "http_pipelining",
             RuntimeValidator::NotImplemented(name) => name,
         }
     }
@@ -839,12 +842,11 @@ fn create_http_gzip_content(parsed: &ParsedValidator) -> Result<RuntimeValidator
     ))
 }
 
-// http_pipelining:int(n) - send n requests without waiting for responses
-// TODO: uses concurrent requests as placeholder, proper pipelining needs dedicated validator
+// http_pipelining:int(n) - send n requests on same connection without waiting for responses
 fn create_http_pipelining(parsed: &ParsedValidator) -> Result<RuntimeValidator, String> {
     let num_requests = parsed.param_as_int(0)? as u32;
-    Ok(RuntimeValidator::ConcurrentRequests(
-        ConcurrentRequestsValidator::new(num_requests, "/", 200),
+    Ok(RuntimeValidator::HttpPipelining(
+        HttpPipeliningValidator::new(num_requests, "/"),
     ))
 }
 
@@ -1155,7 +1157,7 @@ mod tests {
     #[test]
     fn test_create_http_pipelining() {
         let validator = create_validator("http_pipelining:int(3)").unwrap();
-        assert_eq!(validator.name(), "concurrent_requests");
+        assert_eq!(validator.name(), "http_pipelining");
     }
 
     #[test]

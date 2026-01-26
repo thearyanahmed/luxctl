@@ -19,8 +19,8 @@ pub use http::{
     ConcurrentRequestsValidator, HttpChunkedValidator, HttpContentTypeValidator,
     HttpGetCompressedValidator, HttpGetFileValidator, HttpGetValidator, HttpGetWithHeaderValidator,
     HttpHeaderPresentValidator, HttpHeaderValueValidator, HttpJsonExistsValidator,
-    HttpJsonFieldValidator, HttpKeepaliveValidator, HttpPostFileValidator, HttpPostJsonValidator,
-    HttpStatusValidator, RateLimitValidator,
+    HttpJsonFieldValidator, HttpKeepaliveValidator, HttpPipeliningValidator, HttpPostFileValidator,
+    HttpPostJsonValidator, HttpStatusValidator, RateLimitValidator,
 };
 pub use json_response::JsonResponseValidator;
 pub use parser::{parse_validator, ParamValue, ParsedValidator};
