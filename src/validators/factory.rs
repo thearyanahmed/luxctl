@@ -210,6 +210,7 @@ fn create_from_parsed(parsed: &ParsedValidator) -> Result<RuntimeValidator, Stri
         "http_file_traversal" => create_http_file_traversal(parsed),
         "http_query_encoded" => create_http_query_encoded(parsed),
         "tcp_read_request" => create_tcp_read_request(parsed),
+        "http_keepalive" => create_http_keepalive(parsed),
         _ => Ok(RuntimeValidator::NotImplemented(parsed.name.clone())),
     }
 }
@@ -799,6 +800,15 @@ fn create_tcp_read_request(_parsed: &ParsedValidator) -> Result<RuntimeValidator
     )))
 }
 
+// http_keepalive:int(n) - send n requests on same connection
+// TODO: currently uses concurrent requests, proper keepalive needs dedicated validator
+fn create_http_keepalive(parsed: &ParsedValidator) -> Result<RuntimeValidator, String> {
+    let num_requests = parsed.param_as_int(0)? as u32;
+    Ok(RuntimeValidator::ConcurrentRequests(
+        ConcurrentRequestsValidator::new(num_requests, "/", 200),
+    ))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1041,5 +1051,11 @@ mod tests {
     fn test_create_tcp_read_request() {
         let validator = create_validator("tcp_read_request:bool(true)").unwrap();
         assert_eq!(validator.name(), "http_get");
+    }
+
+    #[test]
+    fn test_create_http_keepalive() {
+        let validator = create_validator("http_keepalive:int(5)").unwrap();
+        assert_eq!(validator.name(), "concurrent_requests");
     }
 }
