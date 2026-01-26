@@ -2,10 +2,11 @@ use super::compile::CanCompileValidator;
 use super::docker::{DockerValidator, Expectation};
 use super::file::FileContentsMatchValidator;
 use super::http::{
-    ConcurrentRequestsValidator, HttpGetCompressedValidator, HttpGetFileValidator,
-    HttpGetValidator, HttpGetWithHeaderValidator, HttpHeaderPresentValidator,
-    HttpHeaderValueValidator, HttpJsonExistsValidator, HttpJsonFieldValidator,
-    HttpPostFileValidator, HttpPostJsonValidator, HttpStatusValidator, RateLimitValidator,
+    ConcurrentRequestsValidator, HttpChunkedValidator, HttpContentTypeValidator,
+    HttpGetCompressedValidator, HttpGetFileValidator, HttpGetValidator, HttpGetWithHeaderValidator,
+    HttpHeaderPresentValidator, HttpHeaderValueValidator, HttpJsonExistsValidator,
+    HttpJsonFieldValidator, HttpKeepaliveValidator, HttpPostFileValidator, HttpPostJsonValidator,
+    HttpStatusValidator, RateLimitValidator,
 };
 use super::parser::{parse_validator, ParsedValidator};
 use super::port::PortValidator;
@@ -57,6 +58,9 @@ pub enum RuntimeValidator {
     HttpStatusCheck(HttpStatusCheck),
     // docker validator (downloads Dockerfiles from GitHub at runtime)
     Docker(DockerValidator),
+    HttpContentType(HttpContentTypeValidator),
+    HttpKeepalive(HttpKeepaliveValidator),
+    HttpChunked(HttpChunkedValidator),
     // placeholder for validators not yet implemented
     NotImplemented(String),
 }
@@ -99,6 +103,9 @@ impl RuntimeValidator {
             RuntimeValidator::HttpJsonFieldValue(v) => v.validate().await,
             RuntimeValidator::HttpStatusCheck(v) => v.validate().await,
             RuntimeValidator::Docker(v) => v.validate().await,
+            RuntimeValidator::HttpContentType(v) => v.validate().await,
+            RuntimeValidator::HttpKeepalive(v) => v.validate().await,
+            RuntimeValidator::HttpChunked(v) => v.validate().await,
             RuntimeValidator::NotImplemented(name) => Ok(TestCase {
                 name: format!("validator '{}'", name),
                 result: Err(format!("validator '{}' not implemented yet", name)),
@@ -143,6 +150,9 @@ impl RuntimeValidator {
             RuntimeValidator::HttpJsonFieldValue(_) => "http_json_field_value",
             RuntimeValidator::HttpStatusCheck(_) => "http_status_check",
             RuntimeValidator::Docker(_) => "docker",
+            RuntimeValidator::HttpContentType(_) => "http_content_type",
+            RuntimeValidator::HttpKeepalive(_) => "http_keepalive",
+            RuntimeValidator::HttpChunked(_) => "http_chunked",
             RuntimeValidator::NotImplemented(name) => name,
         }
     }
@@ -744,14 +754,13 @@ fn create_http_file_not_found(parsed: &ParsedValidator) -> Result<RuntimeValidat
 }
 
 // http_content_type:string(filename),string(mime) - GET /files/filename, verify Content-Type
-// TODO: currently just verifies file is accessible, mime check needs dedicated validator
 fn create_http_content_type(parsed: &ParsedValidator) -> Result<RuntimeValidator, String> {
     let filename = parsed.param_as_string(0)?;
-    let _expected_mime = parsed.param_as_string(1)?;
+    let expected_mime = parsed.param_as_string(1)?;
     let path = format!("/files/{}", filename);
-    Ok(RuntimeValidator::HttpGetFile(HttpGetFileValidator::new(
-        &path, 200,
-    )))
+    Ok(RuntimeValidator::HttpContentType(
+        HttpContentTypeValidator::new(&path, expected_mime),
+    ))
 }
 
 // http_gzip_encoding:string(path),bool(true) - verify gzip Content-Encoding header
@@ -806,11 +815,10 @@ fn create_tcp_read_request(_parsed: &ParsedValidator) -> Result<RuntimeValidator
 }
 
 // http_keepalive:int(n) - send n requests on same connection
-// TODO: currently uses concurrent requests, proper keepalive needs dedicated validator
 fn create_http_keepalive(parsed: &ParsedValidator) -> Result<RuntimeValidator, String> {
     let num_requests = parsed.param_as_int(0)? as u32;
-    Ok(RuntimeValidator::ConcurrentRequests(
-        ConcurrentRequestsValidator::new(num_requests, "/", 200),
+    Ok(RuntimeValidator::HttpKeepalive(
+        HttpKeepaliveValidator::new(num_requests, "/"),
     ))
 }
 
@@ -839,19 +847,18 @@ fn create_http_pipelining(parsed: &ParsedValidator) -> Result<RuntimeValidator, 
 }
 
 // http_chunked_stream:int(n) - GET /stream, expect chunked transfer with n chunks
-// TODO: uses http_get as placeholder, proper chunked validation needs dedicated validator
 fn create_http_chunked_stream(parsed: &ParsedValidator) -> Result<RuntimeValidator, String> {
-    let _num_chunks = parsed.param_as_int(0)?;
-    Ok(RuntimeValidator::HttpGet(HttpGetValidator::new(
-        "/stream", 200, None,
+    let num_chunks = parsed.param_as_int(0)? as u32;
+    Ok(RuntimeValidator::HttpChunked(HttpChunkedValidator::new(
+        "/stream",
+        Some(num_chunks),
     )))
 }
 
 // http_chunked_format:bool(true) - verify proper chunked transfer encoding format
-// TODO: uses http_get as placeholder, proper format validation needs dedicated validator
 fn create_http_chunked_format(_parsed: &ParsedValidator) -> Result<RuntimeValidator, String> {
-    Ok(RuntimeValidator::HttpGet(HttpGetValidator::new(
-        "/stream", 200, None,
+    Ok(RuntimeValidator::HttpChunked(HttpChunkedValidator::new(
+        "/stream", None,
     )))
 }
 
@@ -1061,7 +1068,7 @@ mod tests {
     fn test_create_http_content_type() {
         let validator =
             create_validator("http_content_type:string(test.txt),string(text/plain)").unwrap();
-        assert_eq!(validator.name(), "http_get_file");
+        assert_eq!(validator.name(), "http_content_type");
     }
 
     #[test]
@@ -1102,7 +1109,7 @@ mod tests {
     #[test]
     fn test_create_http_keepalive() {
         let validator = create_validator("http_keepalive:int(5)").unwrap();
-        assert_eq!(validator.name(), "concurrent_requests");
+        assert_eq!(validator.name(), "http_keepalive");
     }
 
     #[test]
@@ -1127,12 +1134,12 @@ mod tests {
     #[test]
     fn test_create_http_chunked_stream() {
         let validator = create_validator("http_chunked_stream:int(5)").unwrap();
-        assert_eq!(validator.name(), "http_get");
+        assert_eq!(validator.name(), "http_chunked");
     }
 
     #[test]
     fn test_create_http_chunked_format() {
         let validator = create_validator("http_chunked_format:bool(true)").unwrap();
-        assert_eq!(validator.name(), "http_get");
+        assert_eq!(validator.name(), "http_chunked");
     }
 }

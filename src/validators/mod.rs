@@ -16,10 +16,11 @@ pub use endpoint::EndpointValidator;
 pub use factory::{create_validator, RuntimeValidator};
 pub use file::FileContentsMatchValidator;
 pub use http::{
-    ConcurrentRequestsValidator, HttpGetCompressedValidator, HttpGetFileValidator,
-    HttpGetValidator, HttpGetWithHeaderValidator, HttpHeaderPresentValidator,
-    HttpHeaderValueValidator, HttpJsonExistsValidator, HttpJsonFieldValidator,
-    HttpPostFileValidator, HttpPostJsonValidator, HttpStatusValidator, RateLimitValidator,
+    ConcurrentRequestsValidator, HttpChunkedValidator, HttpContentTypeValidator,
+    HttpGetCompressedValidator, HttpGetFileValidator, HttpGetValidator, HttpGetWithHeaderValidator,
+    HttpHeaderPresentValidator, HttpHeaderValueValidator, HttpJsonExistsValidator,
+    HttpJsonFieldValidator, HttpKeepaliveValidator, HttpPostFileValidator, HttpPostJsonValidator,
+    HttpStatusValidator, RateLimitValidator,
 };
 pub use json_response::JsonResponseValidator;
 pub use parser::{parse_validator, ParamValue, ParsedValidator};
