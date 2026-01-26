@@ -209,6 +209,7 @@ fn create_from_parsed(parsed: &ParsedValidator) -> Result<RuntimeValidator, Stri
         "http_file_get" => create_http_file_get_alias(parsed),
         "http_file_traversal" => create_http_file_traversal(parsed),
         "http_query_encoded" => create_http_query_encoded(parsed),
+        "tcp_read_request" => create_tcp_read_request(parsed),
         _ => Ok(RuntimeValidator::NotImplemented(parsed.name.clone())),
     }
 }
@@ -791,6 +792,13 @@ fn create_http_query_encoded(parsed: &ParsedValidator) -> Result<RuntimeValidato
     )))
 }
 
+// tcp_read_request:bool(true) - verify server reads and processes HTTP request
+fn create_tcp_read_request(_parsed: &ParsedValidator) -> Result<RuntimeValidator, String> {
+    Ok(RuntimeValidator::HttpGet(HttpGetValidator::new(
+        "/", 200, None,
+    )))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1026,6 +1034,12 @@ mod tests {
         let validator =
             create_validator("http_query_encoded:string(hello%20world),string(hello world)")
                 .unwrap();
+        assert_eq!(validator.name(), "http_get");
+    }
+
+    #[test]
+    fn test_create_tcp_read_request() {
+        let validator = create_validator("tcp_read_request:bool(true)").unwrap();
         assert_eq!(validator.name(), "http_get");
     }
 }
