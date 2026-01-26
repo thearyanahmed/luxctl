@@ -201,6 +201,7 @@ fn create_from_parsed(parsed: &ParsedValidator) -> Result<RuntimeValidator, Stri
         "http_echo" => create_http_echo(parsed),
         "http_user_agent" => create_http_user_agent(parsed),
         "http_concurrent_clients" => create_http_concurrent_clients(parsed),
+        "http_query_param" => create_http_query_param(parsed),
         _ => Ok(RuntimeValidator::NotImplemented(parsed.name.clone())),
     }
 }
@@ -697,6 +698,19 @@ fn create_http_concurrent_clients(parsed: &ParsedValidator) -> Result<RuntimeVal
     ))
 }
 
+// http_query_param:string(name),string(value),string(expected) - GET /search?name=value
+fn create_http_query_param(parsed: &ParsedValidator) -> Result<RuntimeValidator, String> {
+    let name = parsed.param_as_string(0)?;
+    let value = parsed.param_as_string(1)?;
+    let expected = parsed.param_as_string(2)?;
+    let path = format!("/search?{}={}", name, value);
+    Ok(RuntimeValidator::HttpGet(HttpGetValidator::new(
+        &path,
+        200,
+        Some(expected.to_string()),
+    )))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -877,5 +891,12 @@ mod tests {
     fn test_create_http_concurrent_clients() {
         let validator = create_validator("http_concurrent_clients:int(5)").unwrap();
         assert_eq!(validator.name(), "concurrent_requests");
+    }
+
+    #[test]
+    fn test_create_http_query_param() {
+        let validator =
+            create_validator("http_query_param:string(q),string(hello),string(hello)").unwrap();
+        assert_eq!(validator.name(), "http_get");
     }
 }
