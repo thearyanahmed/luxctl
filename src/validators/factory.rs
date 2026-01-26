@@ -192,6 +192,7 @@ fn create_from_parsed(parsed: &ParsedValidator) -> Result<RuntimeValidator, Stri
         "http_json_field_value" => create_http_json_field_value(parsed),
         "http_status_check" => create_http_status_check(parsed),
         "docker" => create_docker(parsed),
+        "http_path_root" => create_http_path_root(parsed),
         _ => Ok(RuntimeValidator::NotImplemented(parsed.name.clone())),
     }
 }
@@ -611,6 +612,16 @@ fn create_docker(parsed: &ParsedValidator) -> Result<RuntimeValidator, String> {
     Ok(RuntimeValidator::Docker(validator))
 }
 
+// http_path_root:int(200) - alias for http_get:string(/),int(status)
+fn create_http_path_root(parsed: &ParsedValidator) -> Result<RuntimeValidator, String> {
+    let status = parsed.param_as_int(0)? as u16;
+    Ok(RuntimeValidator::HttpGet(HttpGetValidator::new(
+        "/",
+        status,
+        None,
+    )))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -735,5 +746,11 @@ mod tests {
         let validator =
             create_validator("docker:string(Go1.22-race),string(exit:0),int(300)").unwrap();
         assert_eq!(validator.name(), "docker");
+    }
+
+    #[test]
+    fn test_create_http_path_root() {
+        let validator = create_validator("http_path_root:int(200)").unwrap();
+        assert_eq!(validator.name(), "http_get");
     }
 }
