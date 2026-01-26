@@ -194,6 +194,7 @@ fn create_from_parsed(parsed: &ParsedValidator) -> Result<RuntimeValidator, Stri
         "docker" => create_docker(parsed),
         "http_path_root" => create_http_path_root(parsed),
         "http_path_unknown" => create_http_path_unknown(parsed),
+        "http_path" => create_http_get(parsed),
         _ => Ok(RuntimeValidator::NotImplemented(parsed.name.clone())),
     }
 }
@@ -766,6 +767,13 @@ mod tests {
     #[test]
     fn test_create_http_path_unknown() {
         let validator = create_validator("http_path_unknown:int(404)").unwrap();
+        assert_eq!(validator.name(), "http_get");
+    }
+
+    #[test]
+    fn test_create_http_path() {
+        let validator =
+            create_validator("http_path:string(/health),int(200),string(healthy)").unwrap();
         assert_eq!(validator.name(), "http_get");
     }
 }
