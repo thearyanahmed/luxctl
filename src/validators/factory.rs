@@ -205,6 +205,7 @@ fn create_from_parsed(parsed: &ParsedValidator) -> Result<RuntimeValidator, Stri
         "http_query_missing" => create_http_query_missing(parsed),
         "http_file_not_found" => create_http_file_not_found(parsed),
         "http_content_type" => create_http_content_type(parsed),
+        "http_gzip_encoding" => create_http_gzip_encoding(parsed),
         _ => Ok(RuntimeValidator::NotImplemented(parsed.name.clone())),
     }
 }
@@ -743,6 +744,14 @@ fn create_http_content_type(parsed: &ParsedValidator) -> Result<RuntimeValidator
     )))
 }
 
+// http_gzip_encoding:string(path),bool(true) - verify gzip Content-Encoding header
+fn create_http_gzip_encoding(parsed: &ParsedValidator) -> Result<RuntimeValidator, String> {
+    let path = parsed.param_as_string(0)?;
+    Ok(RuntimeValidator::HttpGetCompressed(
+        HttpGetCompressedValidator::new(path, "gzip"),
+    ))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -950,5 +959,12 @@ mod tests {
         let validator =
             create_validator("http_content_type:string(test.txt),string(text/plain)").unwrap();
         assert_eq!(validator.name(), "http_get_file");
+    }
+
+    #[test]
+    fn test_create_http_gzip_encoding() {
+        let validator =
+            create_validator("http_gzip_encoding:string(/compressed),bool(true)").unwrap();
+        assert_eq!(validator.name(), "http_get_compressed");
     }
 }
