@@ -878,6 +878,237 @@ impl RateLimitValidator {
     }
 }
 
+/// Validator: check Content-Type header for a specific path
+pub struct HttpContentTypeValidator {
+    pub port: u16,
+    pub path: String,
+    pub expected_mime: String,
+}
+
+impl HttpContentTypeValidator {
+    pub fn new(path: &str, expected_mime: &str) -> Self {
+        Self {
+            port: DEFAULT_PORT,
+            path: path.to_string(),
+            expected_mime: expected_mime.to_string(),
+        }
+    }
+
+    pub async fn validate(&self) -> Result<TestCase, String> {
+        let response = http_request(self.port, "GET", &self.path, &[], None).await?;
+
+        let result = match response.get_header("content-type") {
+            Some(actual) if actual.starts_with(&self.expected_mime) => Ok(format!(
+                "Content-Type '{}' matches expected '{}'",
+                actual, self.expected_mime
+            )),
+            Some(actual) => Err(format!(
+                "expected Content-Type '{}', got '{}'",
+                self.expected_mime, actual
+            )),
+            None => Err("Content-Type header not present".to_string()),
+        };
+
+        Ok(TestCase {
+            name: format!("GET {} Content-Type = '{}'", self.path, self.expected_mime),
+            result,
+        })
+    }
+}
+
+/// Validator: send multiple requests on the same TCP connection (HTTP keep-alive)
+pub struct HttpKeepaliveValidator {
+    pub port: u16,
+    pub num_requests: u32,
+    pub path: String,
+}
+
+impl HttpKeepaliveValidator {
+    pub fn new(num_requests: u32, path: &str) -> Self {
+        Self {
+            port: DEFAULT_PORT,
+            num_requests,
+            path: path.to_string(),
+        }
+    }
+
+    pub async fn validate(&self) -> Result<TestCase, String> {
+        let addr = format!("127.0.0.1:{}", self.port);
+
+        let connect_result = timeout(DEFAULT_TIMEOUT, TcpStream::connect(&addr)).await;
+        let mut stream = match connect_result {
+            Ok(Ok(s)) => s,
+            Ok(Err(e)) => return Err(format!("connection failed: {}", e)),
+            Err(_) => return Err("connection timeout".to_string()),
+        };
+
+        let mut successes = 0u32;
+
+        for i in 0..self.num_requests {
+            // build request with Connection: keep-alive (except last one)
+            let connection = if i == self.num_requests - 1 {
+                "close"
+            } else {
+                "keep-alive"
+            };
+
+            let request = format!(
+                "GET {} HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: {}\r\n\r\n",
+                self.path, connection
+            );
+
+            // send request
+            if let Err(e) = stream.write_all(request.as_bytes()).await {
+                return Err(format!("failed to send request {}: {}", i + 1, e));
+            }
+
+            // read response - we need to parse headers to get Content-Length
+            let mut buf = vec![0u8; 8192];
+            let read_result = timeout(DEFAULT_TIMEOUT, stream.read(&mut buf)).await;
+
+            match read_result {
+                Ok(Ok(n)) if n > 0 => {
+                    let response_str = String::from_utf8_lossy(&buf[..n]);
+                    if response_str.contains("HTTP/1.") && response_str.contains("200") {
+                        successes += 1;
+                    }
+                }
+                Ok(Ok(_)) => return Err(format!("connection closed after request {}", i + 1)),
+                Ok(Err(e)) => return Err(format!("read error on request {}: {}", i + 1, e)),
+                Err(_) => return Err(format!("timeout on request {}", i + 1)),
+            }
+        }
+
+        let result = if successes == self.num_requests {
+            Ok(format!(
+                "all {} requests succeeded on single connection",
+                self.num_requests
+            ))
+        } else {
+            Err(format!(
+                "only {}/{} requests succeeded on keep-alive connection",
+                successes, self.num_requests
+            ))
+        };
+
+        Ok(TestCase {
+            name: format!("{} requests on keep-alive connection", self.num_requests),
+            result,
+        })
+    }
+}
+
+/// Validator: verify chunked transfer encoding
+pub struct HttpChunkedValidator {
+    pub port: u16,
+    pub path: String,
+    pub expected_chunks: Option<u32>,
+}
+
+impl HttpChunkedValidator {
+    pub fn new(path: &str, expected_chunks: Option<u32>) -> Self {
+        Self {
+            port: DEFAULT_PORT,
+            path: path.to_string(),
+            expected_chunks,
+        }
+    }
+
+    pub async fn validate(&self) -> Result<TestCase, String> {
+        let addr = format!("127.0.0.1:{}", self.port);
+
+        let connect_result = timeout(DEFAULT_TIMEOUT, TcpStream::connect(&addr)).await;
+        let mut stream = match connect_result {
+            Ok(Ok(s)) => s,
+            Ok(Err(e)) => return Err(format!("connection failed: {}", e)),
+            Err(_) => return Err("connection timeout".to_string()),
+        };
+
+        let request = format!(
+            "GET {} HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n",
+            self.path
+        );
+
+        stream
+            .write_all(request.as_bytes())
+            .await
+            .map_err(|e| format!("failed to send request: {}", e))?;
+
+        let mut response = Vec::new();
+        let read_result = timeout(DEFAULT_TIMEOUT, stream.read_to_end(&mut response)).await;
+
+        match read_result {
+            Ok(Ok(_)) => {}
+            Ok(Err(e)) => return Err(format!("failed to read response: {}", e)),
+            Err(_) => return Err("read timeout".to_string()),
+        }
+
+        let response_str = String::from_utf8_lossy(&response);
+
+        // check for Transfer-Encoding: chunked header
+        let has_chunked_header = response_str
+            .to_lowercase()
+            .contains("transfer-encoding: chunked");
+
+        if !has_chunked_header {
+            return Ok(TestCase {
+                name: format!("GET {} chunked transfer", self.path),
+                result: Err("Transfer-Encoding: chunked header not found".to_string()),
+            });
+        }
+
+        // count chunks by looking for hex size lines followed by \r\n
+        // chunk format: <hex-size>\r\n<data>\r\n ... 0\r\n\r\n
+        let body_start = response_str.find("\r\n\r\n").unwrap_or(0) + 4;
+        let body = &response_str[body_start..];
+
+        let mut chunk_count = 0u32;
+        let mut pos = 0;
+        let body_bytes = body.as_bytes();
+
+        while pos < body_bytes.len() {
+            // find the chunk size line (ends with \r\n)
+            let line_end = body[pos..].find("\r\n");
+            if line_end.is_none() {
+                break;
+            }
+
+            let line = &body[pos..pos + line_end.unwrap_or(0)];
+
+            // try to parse as hex
+            if let Ok(size) = usize::from_str_radix(line.trim(), 16) {
+                if size == 0 {
+                    // final chunk
+                    break;
+                }
+                chunk_count += 1;
+                // skip: size line + \r\n + data + \r\n
+                pos += line.len() + 2 + size + 2;
+            } else {
+                break;
+            }
+        }
+
+        let result = match self.expected_chunks {
+            Some(expected) if chunk_count >= expected => Ok(format!(
+                "received {} chunks (expected >= {})",
+                chunk_count, expected
+            )),
+            Some(expected) => Err(format!(
+                "expected >= {} chunks, got {}",
+                expected, chunk_count
+            )),
+            None if chunk_count > 0 => Ok(format!("received {} chunks", chunk_count)),
+            None => Err("no chunks received".to_string()),
+        };
+
+        Ok(TestCase {
+            name: format!("GET {} chunked transfer", self.path),
+            result,
+        })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
