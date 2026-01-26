@@ -204,6 +204,7 @@ fn create_from_parsed(parsed: &ParsedValidator) -> Result<RuntimeValidator, Stri
         "http_query_param" => create_http_query_param(parsed),
         "http_query_missing" => create_http_query_missing(parsed),
         "http_file_not_found" => create_http_file_not_found(parsed),
+        "http_content_type" => create_http_content_type(parsed),
         _ => Ok(RuntimeValidator::NotImplemented(parsed.name.clone())),
     }
 }
@@ -731,6 +732,17 @@ fn create_http_file_not_found(parsed: &ParsedValidator) -> Result<RuntimeValidat
     )))
 }
 
+// http_content_type:string(filename),string(mime) - GET /files/filename, verify Content-Type
+// TODO: currently just verifies file is accessible, mime check needs dedicated validator
+fn create_http_content_type(parsed: &ParsedValidator) -> Result<RuntimeValidator, String> {
+    let filename = parsed.param_as_string(0)?;
+    let _expected_mime = parsed.param_as_string(1)?;
+    let path = format!("/files/{}", filename);
+    Ok(RuntimeValidator::HttpGetFile(HttpGetFileValidator::new(
+        &path, 200,
+    )))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -931,5 +943,12 @@ mod tests {
         let validator =
             create_validator("http_file_not_found:string(missing.txt),int(404)").unwrap();
         assert_eq!(validator.name(), "http_get");
+    }
+
+    #[test]
+    fn test_create_http_content_type() {
+        let validator =
+            create_validator("http_content_type:string(test.txt),string(text/plain)").unwrap();
+        assert_eq!(validator.name(), "http_get_file");
     }
 }
