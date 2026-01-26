@@ -207,6 +207,7 @@ fn create_from_parsed(parsed: &ParsedValidator) -> Result<RuntimeValidator, Stri
         "http_content_type" => create_http_content_type(parsed),
         "http_gzip_encoding" => create_http_gzip_encoding(parsed),
         "http_file_get" => create_http_file_get_alias(parsed),
+        "http_file_traversal" => create_http_file_traversal(parsed),
         _ => Ok(RuntimeValidator::NotImplemented(parsed.name.clone())),
     }
 }
@@ -765,6 +766,18 @@ fn create_http_file_get_alias(parsed: &ParsedValidator) -> Result<RuntimeValidat
     )))
 }
 
+// http_file_traversal:string(path),int(status) - test path traversal attack, expect status
+fn create_http_file_traversal(parsed: &ParsedValidator) -> Result<RuntimeValidator, String> {
+    let traversal_path = parsed.param_as_string(0)?;
+    let expected_status = parsed.param_as_int(1)? as u16;
+    let path = format!("/files/{}", traversal_path);
+    Ok(RuntimeValidator::HttpGet(HttpGetValidator::new(
+        &path,
+        expected_status,
+        None,
+    )))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -985,6 +998,13 @@ mod tests {
     fn test_create_http_file_get_alias() {
         let validator =
             create_validator("http_file_get:string(test.txt),string(hello world)").unwrap();
+        assert_eq!(validator.name(), "http_get");
+    }
+
+    #[test]
+    fn test_create_http_file_traversal() {
+        let validator =
+            create_validator("http_file_traversal:string(../etc/passwd),int(400)").unwrap();
         assert_eq!(validator.name(), "http_get");
     }
 }
